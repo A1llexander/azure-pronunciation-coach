@@ -2,7 +2,7 @@
 
 Static web app that wraps Azure Speech pronunciation assessment: paste a text, read it aloud, get word-level scores, replay any word as you said it. Bring your own Azure Speech key (F0 free tier recommended). No backend.
 
-Status: early development. The user guide and live link arrive with the first release.
+Status: early development. The user guide and live link arrive with the first release. Draft guide to getting a free key: [docs/get-an-azure-key.md](docs/get-an-azure-key.md).
 
 ## For developers
 
