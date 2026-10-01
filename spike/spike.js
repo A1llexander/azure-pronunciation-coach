@@ -118,11 +118,26 @@ window.WebSocket = class InstrumentedWebSocket extends NativeWebSocket {
 
 /* ---------- credentials and SDK config ---------- */
 
+// Azure region codes are lowercase with no spaces ("westeurope"). Users often paste the
+// display name ("West Europe"), which yields a non-existent host and a ConnectionFailure.
+function normalizeRegion(raw) {
+  return raw.replace(/\s+/g, "").toLowerCase();
+}
+
 function readCredentials() {
   const key = $("key").value.trim();
-  const region = $("region").value.trim().toLowerCase();
+  const raw = $("region").value.trim();
+  const region = normalizeRegion(raw);
   secrets.add(key);
   if (!key || !region) throw new Error("Enter key and region first.");
+  if (!/^[a-z0-9]+$/.test(region)) {
+    throw new Error(`Region "${raw}" is not a region code. Use the short code from Keys and Endpoint, e.g. westeurope.`);
+  }
+  if (region !== raw) {
+    findings.meta.regionNormalized = { from: raw, to: region };
+    $("region").value = region;
+    log(`Region normalized: "${raw}" -> "${region}"`);
+  }
   return { key, region };
 }
 
@@ -162,7 +177,7 @@ async function speechConfigFor({ key, region, locale, auth = $("auth").value, wo
 
 /* ---------- one recognition session over a push stream ---------- */
 
-function startSession({ setup, locale, referenceText, label, onPartial }) {
+function startSession({ setup, locale, referenceText, label, onPartial, onError }) {
   const { config } = setup;
   const format = sdk.AudioStreamFormat.getWaveFormatPCM(TARGET_SAMPLE_RATE, 16, 1);
   const pushStream = sdk.AudioInputStream.createPushStream(format);
@@ -223,6 +238,7 @@ function startSession({ setup, locale, referenceText, label, onPartial }) {
     };
     log(`[${label}] canceled ${run.canceled.reason} ${run.canceled.errorCodeName ?? ""} ${run.canceled.errorDetails}`);
     resolveDone("canceled");
+    if (run.canceled.reason === "Error") onError?.();
   };
 
   recognizer.startContinuousRecognitionAsync(
@@ -331,6 +347,8 @@ async function onRecord() {
       onPartial: (text) => {
         $("live").textContent = text;
       },
+      // Stop the microphone as soon as Azure cancels with an error, so a failed run is obvious.
+      onError: () => onStop(),
     });
     const capture = await startMicCapture((float16k) => {
       const int16 = floatToInt16(float16k);
@@ -348,9 +366,11 @@ async function onRecord() {
       if (elapsed >= MAX_RECORDING_MS) onStop();
     }, 200);
     active = { session, capture, chunks, timer, getOnset: () => onsetSample };
+    if (session.run.canceled?.reason === "Error") onStop(); // canceled before capture was ready
     log(`Recording ${locale}: context ${capture.contextSampleRate} Hz, track ${JSON.stringify(capture.trackSettings)}`);
   } catch (error) {
-    findings.probes.push({ case: "microphone-or-start", name: error.name, message: redact(error.message) });
+    const isMic = ["NotAllowedError", "NotFoundError", "NotReadableError", "OverconstrainedError"].includes(error.name);
+    findings.probes.push({ case: isMic ? "microphone" : "start-failed", name: error.name, message: redact(error.message) });
     log(`Start failed: ${error.name}: ${error.message}`);
     $("btnStop").disabled = true;
     setBusy(false);
