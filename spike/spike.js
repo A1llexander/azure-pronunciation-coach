@@ -40,6 +40,7 @@ const findings = {
   },
   csp: { violations: [] },
   sockets: [],
+  sentContexts: [],
   http: [],
   runs: [],
   probes: [],
@@ -114,7 +115,32 @@ window.WebSocket = class InstrumentedWebSocket extends NativeWebSocket {
     recordSocket(String(url));
     super(url, protocols);
   }
+
+  send(data) {
+    if (typeof data === "string") recordSentText(data);
+    super.send(data);
+  }
 };
+
+// Records the speech.config / speech.context messages the SDK actually sends, to check
+// whether the pronunciation assessment parameters reach the service.
+function recordSentText(text) {
+  const match = /^Path:\s*(speech\.context|speech\.config)\s*$/im.exec(text);
+  if (!match) return;
+  const bodyStart = text.indexOf("\r\n\r\n");
+  const body = bodyStart === -1 ? "" : text.slice(bodyStart + 4);
+  let json;
+  try {
+    json = JSON.parse(redact(body));
+  } catch {
+    json = { unparsed: redact(body).slice(0, 2000) };
+  }
+  const pa = json?.phraseDetection?.enrichment?.pronunciationAssessment;
+  findings.sentContexts.push({ at: new Date().toISOString(), path: match[1].toLowerCase(), body: json });
+  if (match[1].toLowerCase() === "speech.context") {
+    log(`Sent speech.context: pronunciationAssessment ${pa ? "PRESENT" : "ABSENT"}; phraseOutput=${JSON.stringify(json?.phraseOutput ?? null)}`);
+  }
+}
 
 /* ---------- credentials and SDK config ---------- */
 
@@ -162,17 +188,43 @@ async function fetchToken(key, region) {
   }
 }
 
-async function speechConfigFor({ key, region, locale, auth = $("auth").value, workerOff = $("workerOff").checked }) {
+async function speechConfigFor({
+  key,
+  region,
+  locale,
+  auth = $("auth").value,
+  workerOff = $("workerOff").checked,
+  endpoint = $("endpoint").value,
+}) {
   let config;
-  if (auth === "token") {
-    token = await fetchToken(key, region);
+  if (auth === "token") token = await fetchToken(key, region);
+  if (endpoint === "v1-conversation") {
+    // Classic endpoint used by older SDKs; the default in 1.52 is /stt/speech/universal/v2.
+    const url = new URL(`wss://${region}.stt.speech.microsoft.com/speech/recognition/conversation/cognitiveservices/v1`);
+    if (auth === "token") {
+      config = sdk.SpeechConfig.fromEndpoint(url);
+      config.authorizationToken = token;
+    } else {
+      config = sdk.SpeechConfig.fromEndpoint(url, key);
+    }
+  } else if (auth === "token") {
     config = sdk.SpeechConfig.fromAuthorizationToken(token, region);
   } else {
     config = sdk.SpeechConfig.fromSubscription(key, region);
   }
   config.speechRecognitionLanguage = locale;
   if (workerOff) config.setProperty(sdk.PropertyId.WebWorkerLoadType, "off");
-  return { config, auth, workerOff };
+  return { config, auth, workerOff, endpoint };
+}
+
+// Microsoft's continuous sample lowercases the reference text and strips punctuation.
+function sampleStyleReference(text) {
+  return text
+    .toLocaleLowerCase()
+    .split(/\s+/)
+    .map((w) => w.replace(/^[\p{P}\p{S}]+|[\p{P}\p{S}]+$/gu, ""))
+    .filter(Boolean)
+    .join(" ");
 }
 
 /* ---------- one recognition session over a push stream ---------- */
@@ -200,6 +252,7 @@ function startSession({ setup, locale, referenceText, label, onPartial, onError 
     locale,
     auth: setup.auth,
     workerOff: setup.workerOff,
+    endpoint: setup.endpoint,
     referenceText,
     prosodyRequested: assessment.enableProsodyAssessment,
     events: [],
@@ -332,7 +385,7 @@ async function onRecord() {
   $("live").textContent = "";
 
   const locale = $("locale").value;
-  const referenceText = $("text").value.trim();
+  const referenceText = $("normalizeRef").checked ? sampleStyleReference($("text").value) : $("text").value.trim();
   const chunks = [];
   let samplesSeen = 0;
   let onsetSample = null;

@@ -25,6 +25,12 @@
       </select>
     </label>
     <label><input id="workerOff" type="checkbox" checked> SDK timer worker off (WebWorkerLoadType=off)</label>
+    <label>Endpoint
+      <select id="endpoint">
+        <option value="v2-default">SDK default (/stt/speech/universal/v2)</option>
+        <option value="v1-conversation">Classic v1 (/speech/recognition/conversation/cognitiveservices/v1)</option>
+      </select>
+    </label>
     <button id="btnToken" type="button">Test token endpoint</button>
   </section>
 
@@ -38,6 +44,7 @@
     </label>
     <p id="protocol" class="hint"></p>
     <textarea id="text" rows="8" cols="90"></textarea>
+    <label><input id="normalizeRef" type="checkbox"> Reference text like Microsoft sample (lowercase, no punctuation)</label>
     <div class="row">
       <button id="btnRecord" type="button">Record</button>
       <button id="btnStop" type="button" disabled>Stop</button>
