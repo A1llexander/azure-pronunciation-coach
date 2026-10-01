@@ -1,0 +1,5 @@
+# Keep LF everywhere so Windows checkouts match CI and lint.
+* text=auto eol=lf
+
+# Vendored files must stay byte-identical: their SHA-256 is checked by tests.
+vendor/** -text
