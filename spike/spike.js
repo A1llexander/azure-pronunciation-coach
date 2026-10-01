@@ -14,6 +14,7 @@ import { TARGET_SAMPLE_RATE, PLAYBACK_PADDING_MS, PROSODY_LOCALES, MAX_RECORDING
 const SDK_VERSION = "1.52.0";
 const ONSET_WINDOW = TARGET_SAMPLE_RATE / 100; // 10 ms windows for local speech onset
 const ONSET_RMS = 0.02;
+const ONSET_MIN_WINDOWS = 10; // 100 ms of sustained sound, so a mouse click on Record is not taken as speech
 const sdk = window.SpeechSDK;
 const $ = (id) => document.getElementById(id);
 
@@ -389,6 +390,8 @@ async function onRecord() {
   const chunks = [];
   let samplesSeen = 0;
   let onsetSample = null;
+  let loudStart = null; // start sample of the current run of loud windows
+  let loudWindows = 0;
 
   try {
     const setup = await speechConfigFor({ ...credentials, locale });
@@ -408,7 +411,13 @@ async function onRecord() {
       session.push(int16);
       chunks.push(int16);
       for (let i = 0; onsetSample === null && i + ONSET_WINDOW <= float16k.length; i += ONSET_WINDOW) {
-        if (rms(float16k.subarray(i, i + ONSET_WINDOW)) > ONSET_RMS) onsetSample = samplesSeen + i;
+        if (rms(float16k.subarray(i, i + ONSET_WINDOW)) > ONSET_RMS) {
+          if (loudWindows === 0) loudStart = samplesSeen + i;
+          loudWindows += 1;
+          if (loudWindows >= ONSET_MIN_WINDOWS) onsetSample = loudStart;
+        } else {
+          loudWindows = 0;
+        }
       }
       samplesSeen += float16k.length;
     });
@@ -506,7 +515,7 @@ function alignmentCheck(run, onsetSample) {
     firstWordOffsetMs: Math.round(firstWordMs),
     localOnsetMs: Math.round(onsetMs),
     deltaMs: Math.round(firstWordMs - onsetMs),
-    note: "Expect |delta| < ~150 ms if offset 0 = first pushed sample.",
+    note: "Onset = first 100 ms of sustained sound. Expect |delta| < ~150 ms if offset 0 = first pushed sample; confirm by ear with ▶.",
   };
 }
 
