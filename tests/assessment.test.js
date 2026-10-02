@@ -208,3 +208,33 @@ describe("tooltipPhonemes", () => {
     assert.deepEqual(tooltipPhonemes(word([])), []);
   });
 });
+
+describe("assess: real en-US insertion/omission runs (scripted mode)", () => {
+  const fx = JSON.parse(readFileSync(new URL("./fixtures/en-US-insert-omit.json", import.meta.url), "utf8"));
+  const run = (k) => assess(fx.referenceText, fx.runs[k].segments);
+
+  test("omission: skipped 'brown' is the only omitted word", () => {
+    const omitted = run(2).items.filter((it) => it.kind === "omitted").map((it) => it.text);
+    assert.deepEqual(omitted, ["brown"]);
+  });
+
+  // In scripted mode Azure maps a word that is not in the reference text onto a
+  // reference word ("fresh" -> "wraps", "very" -> "warm"). The position of the
+  // extra word is detected, its spelling is not.
+  test("insertion: extra word is detected between 'warm' and 'of', spelled as a reference word", () => {
+    const items = run(1).items;
+    const inserted = items.filter((it) => it.kind === "inserted");
+    assert.ok(inserted.length >= 1);
+    assert.ok(inserted.every((it) => tokenizeReference(fx.referenceText).some((t) => t.norm === it.spoken.norm)));
+    const warm = items.findIndex((it) => it.text === "warm");
+    const of = items.findIndex((it) => it.text === "of");
+    assert.ok(items.slice(warm + 1, of).some((it) => it.kind === "inserted"));
+  });
+
+  test("every recognized word is placed exactly once in all runs", () => {
+    for (let k = 0; k < fx.runs.length; k += 1) {
+      const recognized = fx.runs[k].segments.flatMap((s) => s.NBest[0].Words).length;
+      assert.equal(run(k).items.filter((it) => it.spoken).length, recognized, `run ${k}`);
+    }
+  });
+});
