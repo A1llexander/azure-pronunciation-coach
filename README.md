@@ -20,7 +20,7 @@ Layout:
 - `src/`: plain JavaScript ES modules.
 - `tests/`: unit tests for the pure modules (`node --test`).
 - `vendor/`: the pinned Microsoft Speech SDK browser bundle.
-- `spike/`: temporary test page for Azure behavior (see `spike/README.md`); removed before release.
+- `docs/`: spec and spike findings.
 
 Vendored Speech SDK: `microsoft-cognitiveservices-speech-sdk` 1.52.0, file `vendor/speech-sdk-1.52.0/microsoft.cognitiveservices.speech.sdk.bundle-min.js`, SHA-256 `3e46efc886450f1940fd4da5caf35a362a8462995356e31b23c3c6ac58ba3aee` (checked by `npm test`).
 
