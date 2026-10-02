@@ -1,6 +1,6 @@
 import { test, describe } from "node:test";
 import assert from "node:assert/strict";
-import { createDownsampler, floatToInt16, int16ToFloat, rms, createSilenceDetector } from "../src/pcm.js";
+import { createDownsampler, floatToInt16, int16ToFloat, rms, createSilenceDetector, acRms } from "../src/pcm.js";
 
 function sine(length, rate, freq, amp = 0.5) {
   const out = new Float32Array(length);
@@ -109,9 +109,11 @@ describe("rms", () => {
 });
 
 describe("createSilenceDetector", () => {
-  const options = { threshold: 0.01, timeoutMs: 1000, sampleRate: 16000 };
-  const quiet = new Float32Array(1600).fill(0.001); // 100 ms
-  const loud = new Float32Array(1600).fill(0.2);
+  const options = { threshold: 0.01, relative: 0.15, timeoutMs: 1000, sampleRate: 16000 };
+  const chunk = (value) => new Float32Array(1600).map((_, i) => value * (i % 2 ? 1 : -1)); // 100 ms, AC level = value
+  const quiet = chunk(0.001);
+  const loud = chunk(0.2);
+  const noise = chunk(0.02); // above the absolute floor, below 15% of speech
 
   test("fires after exactly timeoutMs of continuous silence", () => {
     const detect = createSilenceDetector(options);
@@ -125,5 +127,26 @@ describe("createSilenceDetector", () => {
     assert.equal(detect(loud), false);
     for (let i = 0; i < 9; i += 1) assert.equal(detect(quiet), false);
     assert.equal(detect(quiet), true);
+  });
+
+  test("room noise counts as silence once speech has set the level", () => {
+    const detect = createSilenceDetector(options);
+    detect(loud);
+    for (let i = 0; i < 9; i += 1) assert.equal(detect(noise), false);
+    assert.equal(detect(noise), true);
+  });
+
+  test("a DC offset alone is silence", () => {
+    const detect = createSilenceDetector(options);
+    const dc = new Float32Array(1600).fill(0.3);
+    for (let i = 0; i < 9; i += 1) detect(dc);
+    assert.equal(detect(dc), true);
+  });
+});
+
+describe("acRms", () => {
+  test("ignores the mean", () => {
+    assert.equal(acRms(new Float32Array(10).fill(0.5)), 0);
+    assert.ok(Math.abs(acRms(Float32Array.from([0.6, 0.4, 0.6, 0.4])) - 0.1) < 1e-6);
   });
 });

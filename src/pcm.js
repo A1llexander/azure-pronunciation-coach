@@ -111,18 +111,41 @@ function assertPositiveInteger(value, name) {
 }
 
 /**
+ * RMS of a chunk with its mean (DC offset) removed, so a microphone with a DC bias
+ * does not look permanently loud.
+ *
+ * @param {Float32Array} samples
+ * @returns {number}
+ */
+export function acRms(samples) {
+  if (samples.length === 0) return 0;
+  let sum = 0;
+  for (let i = 0; i < samples.length; i += 1) sum += samples[i];
+  const mean = sum / samples.length;
+  let sq = 0;
+  for (let i = 0; i < samples.length; i += 1) sq += (samples[i] - mean) ** 2;
+  return Math.sqrt(sq / samples.length);
+}
+
+/**
  * Stateful silence detector over consecutive chunks.
  *
- * @param {{threshold: number, timeoutMs: number, sampleRate: number}} options
- *   threshold: RMS level (Float32 scale) below which a chunk counts as silent.
+ * A chunk is silent when its AC RMS is below max(threshold, relative × loudest chunk so far):
+ * the absolute floor covers a quiet room, the relative level covers background noise once the
+ * speaker's level is known.
+ *
+ * @param {{threshold: number, relative: number, timeoutMs: number, sampleRate: number}} options
  * @returns {(chunk: Float32Array) => boolean} Feed each chunk in order; returns true once
  *   silence has lasted at least timeoutMs without interruption.
  */
-export function createSilenceDetector({ threshold, timeoutMs, sampleRate }) {
+export function createSilenceDetector({ threshold, relative, timeoutMs, sampleRate }) {
   const limit = Math.round((timeoutMs / 1000) * sampleRate);
   let silentSamples = 0;
+  let peak = 0;
   return function isSilentLongEnough(chunk) {
-    if (rms(chunk) < threshold) silentSamples += chunk.length;
+    const level = acRms(chunk);
+    peak = Math.max(peak, level);
+    if (level < Math.max(threshold, peak * relative)) silentSamples += chunk.length;
     else silentSamples = 0;
     return silentSamples >= limit;
   };

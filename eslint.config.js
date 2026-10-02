@@ -59,6 +59,7 @@ const browserGlobals = {
   clearInterval: "readonly",
   requestAnimationFrame: "readonly",
   matchMedia: "readonly",
+  Option: "readonly",
   SpeechSDK: "readonly",
 };
 

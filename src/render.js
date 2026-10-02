@@ -44,9 +44,9 @@ export function scoreRows(scores) {
 export function renderResults(container, result, { locale, note, onPlay, tooltip }) {
   const summary = el("div", "summary");
   summary.append(ring(result.scores.pronunciation), bars(result.scores));
-  container.replaceChildren(summary);
+  container.replaceChildren(reading(result.items, locale, onPlay, tooltip), legend());
   if (note) container.append(el("p", "result-note", note));
-  container.append(legend(), reading(result.items, locale, onPlay, tooltip));
+  container.append(summary);
 }
 
 function ring(score) {
@@ -78,6 +78,7 @@ function bars(scores) {
 
 function legend() {
   const list = el("ul", "legend");
+  list.setAttribute("aria-label", "How to read the marks");
   const sample = (cls, text) => el("span", `word word--${cls}`, text);
   const item = (...children) => {
     const li = el("li");
