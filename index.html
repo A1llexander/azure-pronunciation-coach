@@ -3,12 +3,93 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self'; media-src 'self'; worker-src 'self'; connect-src 'self' wss://*.stt.speech.microsoft.com https://*.api.cognitive.microsoft.com; object-src 'none'; base-uri 'none'; form-action 'none'">
+  <meta name="referrer" content="no-referrer">
+  <meta name="description" content="Read a text aloud and see how each word sounded. Uses your own free Azure Speech key.">
   <title>Pronunciation Coach</title>
+  <link rel="stylesheet" href="src/styles.css">
+  <script src="vendor/speech-sdk-1.52.0/microsoft.cognitiveservices.speech.sdk.bundle-min.js"></script>
+  <script type="module" src="src/app.js"></script>
 </head>
-<body>
+<body data-state="loading">
+  <header class="top">
+    <h1 class="brand">Pronunciation Coach</h1>
+    <p class="key-status" id="keyStatus" hidden>
+      <span id="keyStatusText"></span>
+      <button type="button" class="link" id="changeKey">Change key</button>
+    </p>
+  </header>
+
   <main>
-    <h1>Pronunciation Coach</h1>
-    <p>Under construction.</p>
+    <section class="notice" id="unsupported" hidden>
+      <h2>Desktop only for now</h2>
+      <p>Open this page on a computer in a recent Chrome, Edge or Firefox. It needs a microphone and audio features that phones do not support well yet.</p>
+    </section>
+
+    <section class="panel" id="setup" hidden aria-labelledby="setupTitle">
+      <h2 id="setupTitle">Connect your Azure Speech key</h2>
+      <p class="lead">
+        Each person uses their own free key. It stays in this browser and is sent only to Microsoft.
+        <a href="https://github.com/A1llexander/azure-pronunciation-coach/blob/main/docs/get-an-azure-key.md" target="_blank" rel="noopener noreferrer">How to get a free key in 10 minutes</a>
+      </p>
+      <form id="keyForm" novalidate>
+        <div class="fields">
+          <label class="field">
+            <span class="field-label">Key</span>
+            <input id="keyInput" type="password" autocomplete="off" spellcheck="false" required>
+          </label>
+          <label class="field field-narrow">
+            <span class="field-label">Region</span>
+            <input id="regionInput" type="text" autocomplete="off" spellcheck="false" placeholder="westeurope" required>
+          </label>
+        </div>
+        <label class="check">
+          <input id="rememberInput" type="checkbox">
+          Remember the key on this device
+        </label>
+        <div class="actions">
+          <button type="submit" class="primary" id="saveKey">Save key</button>
+          <button type="button" class="quiet" id="forgetKey">Forget key</button>
+        </div>
+        <p class="form-message" id="keyMessage" role="alert"></p>
+      </form>
+    </section>
+
+    <section id="practice" hidden aria-label="Practice">
+      <div class="practice-head">
+        <label for="locale">Language</label>
+        <select id="locale">
+          <option value="en-US">English (US)</option>
+          <option value="es-ES">Spanish (Spain)</option>
+        </select>
+      </div>
+      <textarea id="text" rows="7" maxlength="1500" spellcheck="false" placeholder="Paste a paragraph you want to read aloud." aria-label="Text to read"></textarea>
+      <p class="text-meta">
+        <span id="charCount">0 / 1500</span>
+        <span class="warning" id="lengthWarning" hidden>This text may take longer than 2 minutes to read. Recording stops at 2:00.</span>
+      </p>
+
+      <div class="recorder">
+        <button type="button" class="record" id="recordButton" disabled>Record</button>
+        <span class="timer" id="timer">2:00</span>
+        <p class="status" id="status" aria-live="polite"></p>
+      </div>
+      <p class="live" id="live" aria-live="polite"></p>
+
+      <div class="error" id="error" role="alert" hidden>
+        <p class="error-message" id="errorMessage"></p>
+        <p class="error-hint" id="errorHint"></p>
+      </div>
+    </section>
+
+    <section class="results" id="results" hidden aria-label="Results"></section>
   </main>
+
+  <footer class="foot">
+    <p>Your voice goes from this browser straight to Microsoft Azure for scoring. Nothing is stored anywhere else, and the recording is gone when you leave the page.</p>
+    <p><a href="https://github.com/A1llexander/azure-pronunciation-coach" target="_blank" rel="noopener noreferrer">Source code on GitHub</a></p>
+  </footer>
+
+  <div class="tooltip" id="tooltip" role="tooltip" hidden></div>
 </body>
 </html>

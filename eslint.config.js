@@ -98,7 +98,12 @@ export default [
     languageOptions: { globals: workletGlobals },
   },
   {
+    files: ["tests/browser/**/*.js"],
+    languageOptions: { globals: browserGlobals, sourceType: "script" },
+  },
+  {
     files: ["tests/**/*.js", "eslint.config.js"],
+    ignores: ["tests/browser/**"],
     languageOptions: { globals: nodeGlobals },
   },
 ];
