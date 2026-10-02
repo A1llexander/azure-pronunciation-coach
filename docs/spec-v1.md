@@ -63,7 +63,7 @@ A static web app on GitHub Pages that wraps Azure Speech pronunciation assessmen
 - Reference text rendered word by word:
   - mispronounced: yellow highlight;
   - omitted: red, strikethrough or bracketed;
-  - inserted (said but not in the text): shown in place with a distinct style;
+  - inserted (said but not in the text): a "+ extra word" marker in place, without the word's text; clicking it plays what was said. In scripted mode Azure spells an extra word as a word from the reference text ("fresh" comes back as "wraps"), so its real spelling is unknown;
   - correct: no highlight.
 - Tooltip on hover: word and score; phoneme names with per-phoneme scores **only when Azure returns non-empty phoneme names**. Decide by the data, not by the language, so es-ES support starts working when Azure adds it.
 
@@ -87,7 +87,9 @@ Use the official Microsoft Speech SDK for JavaScript (`microsoft-cognitiveservic
 **Aggregation (main technical task)**
 
 - Continuous mode returns several segments. Merge their word lists, then compute final scores yourself. Base the method on Microsoft's official JS continuous pronunciation assessment sample, not on an invented formula.
-- In continuous scripted mode each segment is assessed against the whole reference text, so per-segment Omission/Insertion flags and Completeness are meaningless (segment 1 reports the rest of the text as omitted). Discard them. Keep from Azure only per-word accuracy, mispronunciation flags and phoneme data; recompute omissions, insertions and Completeness from your own alignment of all recognized words against the reference text. Confirm this behavior against the Microsoft sample in the spike.
+- In continuous scripted mode the service does not report omitted or inserted words, and per-segment Completeness ignores the unread rest of the text (confirmed in the spike: 96–100 per segment with less than half the text read). Discard per-segment Omission/Insertion flags and Completeness. Keep from Azure only per-word accuracy, mispronunciation flags and phoneme data; recompute omissions, insertions and Completeness from your own alignment of all recognized words against the reference text.
+- Scores follow the Microsoft sample as is: omitted words count as 0 in Accuracy, so stopping early lowers Accuracy as well as Completeness (decided Oct 2, 2026).
+- If a recognized result comes back without pronunciation assessment (seen once in the spike), show "Assessment unavailable, please retry" instead of scores.
 - Offsets and durations are in 100-ns ticks. Verify in the spike that offset 0 corresponds to the first pushed PCM sample.
 
 **Verified service constraints**
@@ -106,7 +108,7 @@ A key in the browser cannot be protected from code running on the page. The goal
 2. **No third-party runtime scripts.** Vendor the pinned Speech SDK bundle into the repo (record version and SHA-256 in the README). If a CDN is used instead, it must have an SRI hash. No analytics, fonts or trackers.
 3. **CSP** via a `<meta http-equiv="Content-Security-Policy">` tag: `default-src 'self'`, `script-src 'self'` (no inline scripts, no 'unsafe-eval'), `connect-src` limited to Azure Speech hosts by wildcard (e.g. wss://\*.stt.speech.microsoft.com, plus the token host if used). A meta CSP is fixed at page load, so it cannot be scoped to the region entered at runtime. The spike confirms the exact hosts and that the vendored SDK bundle runs without 'unsafe-eval'; the lint rule covers only our code.
 4. **Storage by choice.** "Remember key on this device" checkbox: on → `localStorage`; off → memory only, lost on tab close. A "Forget key" button clears all stored values.
-5. **Key never exposed.** Not in page URLs, console logs or error messages; masked input field; errors from the SDK are sanitized before display. The spike checks whether the SDK puts the key in the WebSocket URL query string (visible in DevTools and Azure-side logs). If it does, exchange the key for a 10-minute token via the region's issueToken endpoint and use SpeechConfig.fromAuthorizationToken; a 2-minute session fits in the token lifetime.
+5. **Key never exposed.** Not in page URLs, console logs or error messages; masked input field; errors from the SDK are sanitized before display. The SDK puts the key in the WebSocket URL query string (confirmed in the spike), so exchange the key for a 10-minute token via the region's issueToken endpoint and use SpeechConfig.fromAuthorizationToken; a 2-minute session fits in the token lifetime.
 6. **README guidance:** use an F0 resource only (a leaked F0 key cannot create charges but can burn the monthly quota); use the official URL, not forks; rotate the key in the Azure portal if a leak is suspected; malicious browser extensions are a residual risk that the app cannot prevent.
 
 ## Error handling
@@ -209,7 +211,7 @@ v1 is done when every box is ticked on the live GitHub Pages site.
 - [ ] A non-developer gets an F0 key using only the README and starts a session without help.
 - [ ] en-US: a 1-minute paragraph produces an overall score, all four breakdown scores, highlighted words, and phoneme tooltips.
 - [ ] es-ES: the same paragraph flow works; Prosody is hidden; phoneme tooltip is hidden because names are empty.
-- [ ] Omitted and inserted words are marked correctly, including at segment boundaries.
+- [ ] Omitted words are marked correctly and inserted words are shown as a marker at the right position, including at segment boundaries.
 - [ ] Clicking a word plays only that word, audibly not cut off.
 - [ ] Recording stops at 2:00 and after 10 s of silence.
 - [ ] Every row of the error table shows its message when reproduced.
