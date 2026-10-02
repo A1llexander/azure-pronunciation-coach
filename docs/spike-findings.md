@@ -50,4 +50,4 @@ With token auth, most failures surface at `issueToken`, before the WebSocket ope
 - Firefox.
 - Quota exhausted and "too many sessions" codes (only from SDK source).
 
-The spike page was removed after these findings; it is kept at git tag `spike-final` (`git checkout spike-final`, then serve the repo root and open `/spike/`).
+The spike page was removed after these findings; it is kept on branch `archive/spike` (`git checkout archive/spike`, then serve the repo root and open `/spike/`).
