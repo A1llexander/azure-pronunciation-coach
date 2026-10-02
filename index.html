@@ -64,8 +64,12 @@
           <option value="en-US">English (US)</option>
           <option value="es-ES">Spanish (Spain)</option>
         </select>
+        <label for="sample">Text</label>
+        <select id="sample">
+          <option value="">Your own text</option>
+        </select>
       </div>
-      <textarea id="text" rows="7" maxlength="1500" spellcheck="false" placeholder="Paste a paragraph you want to read aloud." aria-label="Text to read"></textarea>
+      <textarea id="text" rows="7" maxlength="1500" spellcheck="false" placeholder="Paste a paragraph you want to read aloud, or pick a text above." aria-label="Text to read"></textarea>
       <p class="text-meta">
         <span id="charCount">0 / 1500</span>
         <span class="warning" id="lengthWarning" hidden>This text may take longer than 2 minutes to read. Recording stops at 2:00.</span>
