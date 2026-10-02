@@ -66,6 +66,11 @@ A static web app on GitHub Pages that wraps Azure Speech pronunciation assessmen
   - inserted (said but not in the text): a "+ extra word" marker in place, without the word's text; clicking it plays what was said. In scripted mode Azure spells an extra word as a word from the reference text ("fresh" comes back as "wraps"), so its real spelling is unknown;
   - correct: no highlight.
 - Tooltip on hover: word and score; phoneme names with per-phoneme scores **only when Azure returns non-empty phoneme names**. Decide by the data, not by the language, so es-ES support starts working when Azure adds it.
+- Prosody marks, only when Azure returns prosody feedback (en-US today; added Oct 2, 2026):
+  - unexpected pause: a "|" before the word when `UnexpectedBreak.Confidence` > 0.75 (Microsoft's suggested threshold) and the reference text has no punctuation before the word;
+  - missing pause: a "/" when `MissingBreak.Confidence` > 0.75 and the reference text has punctuation before the word (our rule, to be checked against Speech Studio);
+  - monotone: a wavy underline on the words of each phrase Azure flags as monotone.
+- A counter bar under the text shows the count of each mark (mispronounced, skipped, extra words, and the three prosody marks when available) and doubles as the legend; clicking a counter hides or shows that mark in the text.
 
 **Word playback**
 
@@ -212,6 +217,7 @@ v1 is done when every box is ticked on the live GitHub Pages site.
 - [ ] en-US: a 1-minute paragraph produces an overall score, all four breakdown scores, highlighted words, and phoneme tooltips.
 - [ ] es-ES: the same paragraph flow works; Prosody is hidden; phoneme tooltip is hidden because names are empty.
 - [ ] Omitted words are marked correctly and inserted words are shown as a marker at the right position, including at segment boundaries.
+- [ ] en-US: pauses inside a phrase and missing pauses at punctuation are marked and counted; monotone phrases are underlined; each counter toggles its mark.
 - [ ] Clicking a word plays only that word, audibly not cut off.
 - [ ] Recording stops at 2:00 and after 10 s of silence.
 - [ ] Every row of the error table shows its message when reproduced.

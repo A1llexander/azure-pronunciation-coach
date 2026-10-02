@@ -44,9 +44,61 @@ export function scoreRows(scores) {
 export function renderResults(container, result, { locale, note, onPlay, tooltip }) {
   const summary = el("div", "summary");
   summary.append(ring(result.scores.pronunciation), bars(result.scores));
-  container.replaceChildren(reading(result.items, locale, onPlay, tooltip), legend());
+  const text = reading(result.items, locale, onPlay, tooltip);
+  container.replaceChildren(text, marksBar(result, text));
   if (note) container.append(el("p", "result-note", note));
   container.append(summary);
+}
+
+/**
+ * Mark types shown in the counter bar, in display order. Prosody types appear only when Azure
+ * returned prosody feedback (en-US).
+ *
+ * @param {{counts: object, prosodyAvailable: boolean}} result
+ * @returns {{type: string, label: string, count: number, sample: string}[]}
+ */
+export function markTypes(result) {
+  const { counts } = result;
+  const types = [
+    { type: "mispronounced", label: "Mispronounced", count: counts.mispronounced, sample: "word" },
+    { type: "omitted", label: "Skipped", count: counts.omitted, sample: "word" },
+    { type: "inserted", label: "Extra words", count: counts.inserted, sample: "‸" },
+  ];
+  if (result.prosodyAvailable) {
+    types.push(
+      { type: "unexpected", label: "Unexpected pauses", count: counts.unexpectedPause, sample: "|" },
+      { type: "missing", label: "Missing pauses", count: counts.missingPause, sample: "/" },
+      { type: "monotone", label: `Monotone phrases of ${counts.phrases}`, count: counts.monotonePhrases, sample: "word" },
+    );
+  }
+  return types;
+}
+
+/** Counters that double as legend and as show/hide toggles for each kind of mark. */
+function marksBar(result, readingNode) {
+  const bar = el("div", "marks");
+  bar.setAttribute("role", "group");
+  bar.setAttribute("aria-label", "Marks in the text. Press one to hide or show it.");
+  for (const { type, label, count, sample } of markTypes(result)) {
+    const button = el("button", `mark-toggle mark-toggle--${type}`);
+    button.type = "button";
+    button.setAttribute("aria-pressed", "true");
+    button.append(sampleMark(type, sample), el("span", "mark-count", String(count)), el("span", "mark-label", label));
+    button.addEventListener("click", () => {
+      const shown = button.getAttribute("aria-pressed") === "true";
+      button.setAttribute("aria-pressed", String(!shown));
+      readingNode.classList.toggle(`hide-${type}`, shown);
+    });
+    bar.append(button);
+  }
+  bar.append(el("p", "marks-hint", "Click a word to hear how you said it."));
+  return bar;
+}
+
+function sampleMark(type, sample) {
+  if (type === "unexpected" || type === "missing") return el("span", `pause pause--${type}`, sample);
+  if (type === "monotone") return el("span", "word word--correct is-monotone", sample);
+  return el("span", `word word--${type}`, sample);
 }
 
 function ring(score) {
@@ -76,45 +128,32 @@ function bars(scores) {
   return list;
 }
 
-function legend() {
-  const list = el("ul", "legend");
-  list.setAttribute("aria-label", "How to read the marks");
-  const sample = (cls, text) => el("span", `word word--${cls}`, text);
-  const item = (...children) => {
-    const li = el("li");
-    li.append(...children);
-    return li;
-  };
-  list.append(
-    item(sample("mispronounced", "word"), " needs work"),
-    item(sample("omitted", "word"), " skipped"),
-    item(sample("inserted", "‸"), " extra word"),
-    item("Click a word to hear how you said it"),
-  );
-  return list;
-}
-
 function reading(items, locale, onPlay, tooltip) {
   const p = el("p", "reading");
   p.lang = locale;
   items.forEach((item, index) => {
     if (index > 0) p.append(" ");
+    if (item.pauseBefore) p.append(pauseNode(item, tooltip));
     p.append(wordNode(item, onPlay, tooltip));
   });
   return p;
 }
 
-function wordNode(item, onPlay, tooltip) {
-  const playable = item.spoken !== null;
-  const node = el(playable ? "button" : "span", `word word--${item.kind}`, item.kind === "inserted" ? "‸" : item.text);
-  if (playable) {
-    node.type = "button";
-    node.addEventListener("click", () => onPlay(item, node));
-    if (item.kind === "inserted") node.setAttribute("aria-label", "Extra word, not in the text. Play it.");
-  }
-  if (item.kind === "omitted") node.setAttribute("aria-label", `${item.text}, skipped`);
+function pauseNode(item, tooltip) {
+  const unexpected = item.pauseBefore === "unexpected";
+  const node = el("span", `pause pause--${item.pauseBefore}`, unexpected ? "|" : "/");
+  const title = unexpected ? "Unexpected pause" : "Missing pause";
+  const line = unexpected
+    ? `You paused for ${(item.pauseMs / 1000).toFixed(2)} s here, inside a phrase.`
+    : "The punctuation here asks for a short pause.";
+  node.tabIndex = 0;
+  node.setAttribute("aria-label", `${title} before ${item.text}`);
+  attachTooltip(node, tooltip, () => [el("p", "tooltip-title", title), el("p", "tooltip-line", line)]);
+  return node;
+}
 
-  const show = () => showTooltip(tooltip, node, item);
+function attachTooltip(node, tooltip, build) {
+  const show = () => placeTooltip(tooltip, node, build());
   const hide = () => {
     tooltip.hidden = true;
   };
@@ -122,10 +161,28 @@ function wordNode(item, onPlay, tooltip) {
   node.addEventListener("focus", show);
   node.addEventListener("mouseleave", hide);
   node.addEventListener("blur", hide);
+}
+
+function wordNode(item, onPlay, tooltip) {
+  const playable = item.spoken !== null;
+  const monotone = item.kind !== "inserted" && item.spoken?.prosody?.monotone;
+  const node = el(
+    playable ? "button" : "span",
+    `word word--${item.kind}${monotone ? " is-monotone" : ""}`,
+    item.kind === "inserted" ? "‸" : item.text,
+  );
+  if (playable) {
+    node.type = "button";
+    node.addEventListener("click", () => onPlay(item, node));
+    if (item.kind === "inserted") node.setAttribute("aria-label", "Extra word, not in the text. Play it.");
+  }
+  if (item.kind === "omitted") node.setAttribute("aria-label", `${item.text}, skipped`);
+
+  attachTooltip(node, tooltip, () => wordTooltip(item));
   return node;
 }
 
-function showTooltip(tooltip, anchor, item) {
+function wordTooltip(item) {
   const children = [];
   if (item.kind === "inserted") {
     children.push(el("p", "tooltip-title", "Extra word"), el("p", "tooltip-line", "Not in the text. Click to hear what you said."));
@@ -147,7 +204,12 @@ function showTooltip(tooltip, anchor, item) {
       }
       children.push(list);
     }
+    if (item.spoken.prosody?.monotone) children.push(el("p", "tooltip-line", "Monotone phrase: vary your pitch more."));
   }
+  return children;
+}
+
+function placeTooltip(tooltip, anchor, children) {
   tooltip.replaceChildren(...children);
   tooltip.hidden = false;
 

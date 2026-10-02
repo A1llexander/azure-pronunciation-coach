@@ -269,3 +269,45 @@ describe("estimateReadingMs", () => {
     assert.equal(estimateReadingMs("", 130), 0);
   });
 });
+
+describe("prosody marks (en-US fixture)", () => {
+  const fx = JSON.parse(readFileSync(new URL("./fixtures/en-US-continuous-3seg.json", import.meta.url), "utf8"));
+  const result = assess(fx.referenceText, fx.segments);
+  const at = (text, nth = 0) => result.items.filter((it) => it.text === text)[nth];
+
+  test("unexpected pause inside a phrase (Azure confidence > 0.75, no punctuation before)", () => {
+    assert.equal(at("at").pauseBefore, "unexpected");
+    assert.equal(Math.round(at("at").pauseMs), 350);
+  });
+
+  test("a pause after a full stop or comma is not an error", () => {
+    assert.equal(at("The").pauseBefore, null); // after "street."
+    assert.equal(at("always").pauseBefore, null); // after "sleeves,"
+  });
+
+  test("missing pause only after punctuation", () => {
+    assert.equal(at("a", 0).pauseBefore, "missing"); // "owner, a" read without a pause
+    assert.ok(result.items.filter((it) => it.pauseBefore === "missing").every((it) => /[,.;:!?]$/.test(result.items[result.items.indexOf(it) - 1].text)));
+  });
+
+  test("counts per mark, monotone per phrase", () => {
+    assert.deepEqual(result.counts, {
+      mispronounced: 1,
+      omitted: 63,
+      inserted: 1,
+      unexpectedPause: 6,
+      missingPause: 1,
+      monotonePhrases: 3,
+      phrases: 3,
+    });
+    assert.equal(result.prosodyAvailable, true);
+  });
+
+  test("es-ES: no prosody, no pause marks", () => {
+    const es = JSON.parse(readFileSync(new URL("./fixtures/es-ES-continuous-21seg.json", import.meta.url), "utf8"));
+    const r = assess(es.referenceText, es.segments);
+    assert.equal(r.prosodyAvailable, false);
+    assert.equal(r.items.filter((it) => it.pauseBefore).length, 0);
+    assert.equal(r.counts.monotonePhrases, 0);
+  });
+});
