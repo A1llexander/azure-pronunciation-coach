@@ -34,5 +34,11 @@ export const SCORE_BANDS = Object.freeze([
 /** Supported assessment locales. */
 export const LOCALES = Object.freeze(["en-US", "es-ES"]);
 
+/**
+ * Word accuracy below which a word Azure marked "None" is shown as mispronounced.
+ * Taken from Microsoft's continuous pronunciation assessment sample.
+ */
+export const MISPRONUNCIATION_THRESHOLD = 60;
+
 /** Locales for which prosody assessment is requested. */
 export const PROSODY_LOCALES = Object.freeze(["en-US"]);
