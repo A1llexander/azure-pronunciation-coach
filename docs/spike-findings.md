@@ -1,6 +1,6 @@
 # Spike findings (Oct 1–2, 2026)
 
-Chrome 154 on Windows, Speech SDK 1.52.0 (vendored), F0 key in `eastus`, page served from GitHub Pages under the target CSP. Raw `findings.json` files are not committed; the Azure responses used by tests are in `tests/fixtures/`.
+Chrome 154 and Edge 154 on Windows, Speech SDK 1.52.0 (vendored), F0 key in `eastus`, page served from GitHub Pages under the target CSP. Raw `findings.json` files are not committed; the Azure responses used by tests are in `tests/fixtures/`.
 
 ## Settled
 
@@ -39,7 +39,15 @@ With token auth, most failures surface at `issueToken`, before the WebSocket ope
 | Too many sessions | SDK `CancellationErrorCode.TooManyRequests` (3) per SDK source; not reproduced | This key is already in use |
 | Quota exhausted | not reproducible on demand; expected HTTP 403 / `Forbidden` (8) per SDK source | Free monthly quota used up |
 
+## Browsers
+
+- Chrome 154: all runs above.
+- Edge 154: en-US run with assessment, IPA phonemes and prosody; no CSP violations; offset vs onset −81 ms.
+- Firefox: **not tested** (not available to the tester). Known risk to check in the manual test: Firefox rejects `createMediaStreamSource` when the AudioContext rate differs from the microphone rate.
+
 ## Not covered yet
 
-- Firefox and Edge runs.
+- Firefox.
 - Quota exhausted and "too many sessions" codes (only from SDK source).
+
+The spike page was removed after these findings; it is kept on branch `archive/spike` (`git checkout archive/spike`, then serve the repo root and open `/spike/`).
