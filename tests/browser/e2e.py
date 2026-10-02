@@ -62,7 +62,7 @@ with sync_playwright() as p:
     check("default text is in the box on first visit", page.input_value("#text").startswith("That's one small step") and not page.is_disabled("#recordButton"))
     check("no sample list", page.locator("#sample").count() == 0)
     page.select_option("#locale", "es-ES")
-    check("switching language swaps the untouched default", page.input_value("#text").startswith("Dicen que más vale"))
+    check("switching language swaps the untouched default", page.input_value("#text").startswith("Me llamo Luna"))
     page.fill("#text", "Mi propio texto.")
     page.select_option("#locale", "en-US")
     check("own text is kept when switching language", page.input_value("#text") == "Mi propio texto.")
