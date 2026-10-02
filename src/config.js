@@ -52,6 +52,12 @@ export const LOCALES = Object.freeze(["en-US", "es-ES"]);
  */
 export const MISPRONUNCIATION_THRESHOLD = 60;
 
+/**
+ * Confidence above which Azure's UnexpectedBreak / MissingBreak feedback counts as an error.
+ * Microsoft's suggested value (how-to-pronunciation-assessment, prosody feedback).
+ */
+export const BREAK_CONFIDENCE_THRESHOLD = 0.75;
+
 /** Locales for which prosody assessment is requested. */
 export const PROSODY_LOCALES = Object.freeze(["en-US"]);
 

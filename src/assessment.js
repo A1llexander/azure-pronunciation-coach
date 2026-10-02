@@ -12,7 +12,7 @@
  * flag and phoneme data are kept from the service.
  */
 
-import { MISPRONUNCIATION_THRESHOLD } from "./config.js";
+import { MISPRONUNCIATION_THRESHOLD, BREAK_CONFIDENCE_THRESHOLD } from "./config.js";
 
 /** Pause allowance Microsoft adds after each word when measuring fluency (100-ns ticks). */
 const WORD_GAP_TICKS = 100_000;
@@ -51,6 +51,15 @@ export function tokenizeReference(text) {
  * @property {boolean} azureMispronounced
  * @property {{name: string, accuracy: number | null}[]} phonemes
  * @property {number} segment     Index of the segment the word came from.
+ * @property {WordProsody | null} prosody  Prosody feedback (en-US only), null when absent.
+ */
+
+/**
+ * @typedef {object} WordProsody
+ * @property {number | null} unexpectedBreak Confidence of an unexpected pause before the word.
+ * @property {number | null} missingBreak    Confidence of a missing pause before the word.
+ * @property {number} breakTicks             Length of the pause before the word (100-ns ticks).
+ * @property {boolean} monotone              The word's phrase was flagged as monotone.
  */
 
 /**
@@ -89,6 +98,7 @@ export function mergeSegments(segments) {
           accuracy: Number.isFinite(p.PronunciationAssessment?.AccuracyScore) ? p.PronunciationAssessment.AccuracyScore : null,
         })),
         segment: index,
+        prosody: readProsody(pa?.Feedback?.Prosody),
       });
     }
   });
@@ -144,6 +154,9 @@ export function alignWords(ref, hyp) {
  * @property {"correct" | "mispronounced" | "omitted" | "inserted"} kind
  * @property {string} text  Reference spelling for reference words; Azure's word for insertions.
  * @property {RecognizedWord | null} spoken  Null for omitted words.
+ * @property {number | null} ref  Index of the reference word, null for insertions.
+ * @property {"unexpected" | "missing" | null} [pauseBefore] Pause error before the word (en-US only).
+ * @property {number} [pauseMs] Length of the pause before the word.
  */
 
 /**
@@ -166,13 +179,78 @@ export function assess(referenceText, segments) {
   );
 
   const items = ops.map(({ op, ref, hyp }) => {
-    if (op === "omit") return { kind: "omitted", text: reference[ref].display, spoken: null };
-    if (op === "insert") return { kind: "inserted", text: words[hyp].word, spoken: words[hyp] };
+    if (op === "omit") return { kind: "omitted", text: reference[ref].display, spoken: null, ref };
+    if (op === "insert") return { kind: "inserted", text: words[hyp].word, spoken: words[hyp], ref: null };
     const spoken = words[hyp];
-    return { kind: isMispronounced(spoken) ? "mispronounced" : "correct", text: reference[ref].display, spoken };
+    return { kind: isMispronounced(spoken) ? "mispronounced" : "correct", text: reference[ref].display, spoken, ref };
   });
 
-  return { items, scores: computeScores(items, words, prosodyScores), assessmentMissing };
+  annotatePauses(items, reference);
+  return {
+    items,
+    scores: computeScores(items, words, prosodyScores),
+    counts: countMarks(items, words),
+    prosodyAvailable: words.some((w) => w.prosody !== null),
+    assessmentMissing,
+  };
+}
+
+function readProsody(feedback) {
+  if (!feedback) return null;
+  const confidence = (value) => (Number.isFinite(value) ? value : null);
+  return {
+    unexpectedBreak: confidence(feedback.Break?.UnexpectedBreak?.Confidence),
+    missingBreak: confidence(feedback.Break?.MissingBreak?.Confidence),
+    breakTicks: Number.isFinite(feedback.Break?.BreakLength) ? feedback.Break.BreakLength : 0,
+    monotone: (feedback.Intonation?.ErrorTypes ?? []).includes("Monotone"),
+  };
+}
+
+/** Ends with clause punctuation, ignoring closing quotes and brackets. */
+const PAUSE_PUNCTUATION = /[,.;:!?…]["'”’»)\]]*$/u;
+
+/**
+ * Pause errors before words, from Azure's break confidences (threshold suggested by Microsoft).
+ * Azure reports a high UnexpectedBreak confidence for any pause, including after a full stop, and a
+ * high MissingBreak confidence for almost every word inside a phrase. So, as our own rule, an
+ * unexpected pause counts only where the text has no punctuation before the word, and a missing
+ * pause only where it does. Verify against Speech Studio before relying on the missing-pause rule.
+ */
+function annotatePauses(items, reference) {
+  for (const item of items) {
+    item.pauseBefore = null;
+    const prosody = item.spoken?.prosody;
+    if (!prosody || item.ref === null || item.ref === 0) continue;
+    const afterPunctuation = PAUSE_PUNCTUATION.test(reference[item.ref - 1].display);
+    if (!afterPunctuation && prosody.unexpectedBreak > BREAK_CONFIDENCE_THRESHOLD) {
+      item.pauseBefore = "unexpected";
+      item.pauseMs = prosody.breakTicks / 10_000;
+    } else if (afterPunctuation && prosody.missingBreak > BREAK_CONFIDENCE_THRESHOLD) {
+      item.pauseBefore = "missing";
+      item.pauseMs = prosody.breakTicks / 10_000;
+    }
+  }
+}
+
+/**
+ * Counts for the summary row. Monotone is reported per phrase (Azure segment), since Azure
+ * flags all words of a monotone phrase together.
+ */
+function countMarks(items, words) {
+  const count = (predicate) => items.filter(predicate).length;
+  const phrases = new Map();
+  for (const w of words) {
+    if (w.prosody) phrases.set(w.segment, (phrases.get(w.segment) ?? false) || w.prosody.monotone);
+  }
+  return {
+    mispronounced: count((it) => it.kind === "mispronounced"),
+    omitted: count((it) => it.kind === "omitted"),
+    inserted: count((it) => it.kind === "inserted"),
+    unexpectedPause: count((it) => it.pauseBefore === "unexpected"),
+    missingPause: count((it) => it.pauseBefore === "missing"),
+    monotonePhrases: [...phrases.values()].filter(Boolean).length,
+    phrases: phrases.size,
+  };
 }
 
 function isMispronounced(word) {

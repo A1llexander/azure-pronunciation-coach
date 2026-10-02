@@ -12,6 +12,7 @@
   --poor: #c62828;
   --track: #e2e7ec;
   --focus: #2457c5;
+  --monotone: #7b8ba3;
 
   --reading: Charter, "Bitstream Charter", "Sitka Text", Cambria, Georgia, serif;
   --ui: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
@@ -34,6 +35,7 @@
     --poor: #ff7b7b;
     --track: #2a343f;
     --focus: #8fb0ff;
+    --monotone: #7d8ca3;
     color-scheme: dark;
   }
 }
@@ -468,39 +470,67 @@ body:not([data-state="recording"]) .timer {
   color: var(--muted);
 }
 
-/* Key to the marks: a separate card in the UI face so it never reads as part of the text. */
-.legend {
+/* Counters for each kind of mark: legend and show/hide toggles in one, in the UI face. */
+.marks {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 0.4rem 1.5rem;
-  margin: 1.25rem 0 0;
+  gap: 0.4rem;
+  margin: 1rem 0 0;
   border: 1px solid var(--line);
   border-radius: 8px;
   background: var(--surface);
-  padding: 0.6rem 0.9rem;
-  list-style: none;
-  color: var(--muted);
-  font: 0.875rem/1.5 var(--ui);
+  padding: 0.5rem;
+  font: 0.875rem/1.4 var(--ui);
 }
 
-.legend .word {
-  cursor: default;
+.mark-toggle {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.4rem;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: none;
+  padding: 0.3rem 0.55rem;
+  color: var(--muted);
+}
+
+.mark-toggle:hover {
+  border-color: var(--line);
+}
+
+.mark-toggle[aria-pressed="false"] {
+  opacity: 0.45;
+}
+
+.mark-toggle[aria-pressed="false"] .mark-label {
+  text-decoration: line-through;
+}
+
+.mark-count {
+  color: var(--ink);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.mark-toggle .word {
   color: var(--ink);
   font: 1rem/1.25 var(--reading);
 }
 
-.legend .word--omitted {
+.mark-toggle .word--omitted {
   color: var(--muted);
 }
 
-.legend .word--inserted {
+.mark-toggle .word--inserted {
   color: var(--pencil-blue);
   font: 700 1.15rem/1 var(--ui);
 }
 
-.legend li:last-child {
-  margin-left: auto;
+.marks-hint {
+  flex-basis: 100%;
+  margin: 0.2rem 0.55rem 0.1rem;
+  color: var(--muted);
 }
 
 /* The annotated reading sits on a page-like surface right under the recorder. */
@@ -531,12 +561,49 @@ body:not([data-state="recording"]) .timer {
 
 button.word {
   border-radius: 3px;
-  text-decoration: underline dotted transparent;
-  text-underline-offset: 0.3em;
 }
 
 button.word:hover {
-  text-decoration-color: var(--muted);
+  box-shadow: inset 0 -2px 0 var(--muted);
+}
+
+.is-monotone {
+  text-decoration: underline wavy var(--monotone) 1px;
+  text-underline-offset: 0.3em;
+  text-decoration-skip-ink: none;
+}
+
+.pause {
+  padding: 0 0.12em;
+  font: 700 1.05em/1 var(--ui);
+  cursor: default;
+}
+
+.pause--unexpected {
+  color: var(--pencil-red);
+}
+
+.pause--missing {
+  color: var(--fair);
+}
+
+.reading.hide-mispronounced .word--mispronounced {
+  background: none;
+}
+
+.reading.hide-omitted .word--omitted {
+  color: inherit;
+  text-decoration: none;
+}
+
+.reading.hide-inserted .word--inserted,
+.reading.hide-unexpected .pause--unexpected,
+.reading.hide-missing .pause--missing {
+  display: none;
+}
+
+.reading.hide-monotone .is-monotone {
+  text-decoration: none;
 }
 
 .word--mispronounced {
