@@ -18,6 +18,12 @@ export const SILENCE_RMS_THRESHOLD = 0.01;
  */
 export const SILENCE_RELATIVE_LEVEL = 0.15;
 
+/**
+ * Noise-floor margin: a chunk within this factor of the quietest chunk so far counts as silence
+ * (3 = about +9.5 dB), which covers laptop microphones whose own noise is above the absolute floor.
+ */
+export const SILENCE_NOISE_MARGIN = 3;
+
 /** Continuous silence that stops the recording (ms). */
 export const SILENCE_TIMEOUT_MS = 10_000;
 
