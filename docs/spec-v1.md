@@ -106,7 +106,7 @@ A key in the browser cannot be protected from code running on the page. The goal
 
 1. **No XSS.** User text and Azure results are rendered only via `textContent` / DOM nodes. No `innerHTML`, `insertAdjacentHTML`, `eval` or string-built HTML anywhere; enforce with a lint rule.
 2. **No third-party runtime scripts.** Vendor the pinned Speech SDK bundle into the repo (record version and SHA-256 in the README). If a CDN is used instead, it must have an SRI hash. No analytics, fonts or trackers.
-3. **CSP** via a `<meta http-equiv="Content-Security-Policy">` tag: `default-src 'self'`, `script-src 'self'` (no inline scripts, no 'unsafe-eval'), `connect-src` limited to Azure Speech hosts by wildcard (e.g. wss://\*.stt.speech.microsoft.com, plus the token host if used). A meta CSP is fixed at page load, so it cannot be scoped to the region entered at runtime. The spike confirms the exact hosts and that the vendored SDK bundle runs without 'unsafe-eval'; the lint rule covers only our code.
+3. **CSP** via a `<meta http-equiv="Content-Security-Policy">` tag: `default-src 'self'`, `script-src 'self'` (no inline scripts, no 'unsafe-eval'), `connect-src` limited to Azure Speech hosts by wildcard: wss://\*.stt.speech.microsoft.com and the token host https://\*.api.cognitive.microsoft.com (confirmed in the spike). A meta CSP is fixed at page load, so it cannot be scoped to the region entered at runtime. The spike confirms the exact hosts and that the vendored SDK bundle runs without 'unsafe-eval'; the lint rule covers only our code.
 4. **Storage by choice.** "Remember key on this device" checkbox: on → `localStorage`; off → memory only, lost on tab close. A "Forget key" button clears all stored values.
 5. **Key never exposed.** Not in page URLs, console logs or error messages; masked input field; errors from the SDK are sanitized before display. The SDK puts the key in the WebSocket URL query string (confirmed in the spike), so exchange the key for a 10-minute token via the region's issueToken endpoint and use SpeechConfig.fromAuthorizationToken; a 2-minute session fits in the token lifetime.
 6. **README guidance:** use an F0 resource only (a leaked F0 key cannot create charges but can burn the monthly quota); use the official URL, not forks; rotate the key in the Azure portal if a leak is suspected; malicious browser extensions are a residual risk that the app cannot prevent.
@@ -126,7 +126,7 @@ Every failure shows a short, plain-English message with the next step. Nothing f
 | Network or service error | Connection to Azure failed | Retry; check internet |
 | Mobile browser | Desktop only for now | Open on a computer |
 
-The exact Azure error codes for each case are mapped in the spike, not guessed.
+The exact Azure error codes for each case are mapped in the spike, not guessed; see `docs/spike-findings.md`. With token auth, invalid key and wrong region surface as `issueToken` HTTP 401, and a non-existent region looks the same as a network failure. "No speech" is decided by zero recognized words: Azure returns `Success` with empty text.
 
 ## Architecture and code quality
 
