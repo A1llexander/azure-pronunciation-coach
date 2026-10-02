@@ -9,8 +9,14 @@ export const TARGET_SAMPLE_RATE = 16000;
 /** Hard recording limit (ms). */
 export const MAX_RECORDING_MS = 120_000;
 
-/** RMS level (Float32 scale, 0..1) below which a chunk counts as silence. Tuned in testing. */
+/** Absolute floor for silence: a chunk below this AC RMS level (Float32 scale, 0..1) is always silent. */
 export const SILENCE_RMS_THRESHOLD = 0.01;
+
+/**
+ * Relative silence level: a chunk quieter than this fraction of the loudest chunk so far
+ * counts as silence, so room noise above the absolute floor still counts. Tuned in testing.
+ */
+export const SILENCE_RELATIVE_LEVEL = 0.15;
 
 /** Continuous silence that stops the recording (ms). */
 export const SILENCE_TIMEOUT_MS = 10_000;
@@ -42,3 +48,46 @@ export const MISPRONUNCIATION_THRESHOLD = 60;
 
 /** Locales for which prosody assessment is requested. */
 export const PROSODY_LOCALES = Object.freeze(["en-US"]);
+
+/**
+ * Azure Speech regions (code, display name), from
+ * https://learn.microsoft.com/en-us/azure/ai-services/speech-service/regions (checked Oct 2026).
+ */
+export const AZURE_REGIONS = Object.freeze([
+  ["australiaeast", "Australia East"],
+  ["brazilsouth", "Brazil South"],
+  ["canadacentral", "Canada Central"],
+  ["canadaeast", "Canada East"],
+  ["centralindia", "Central India"],
+  ["centralus", "Central US"],
+  ["eastasia", "East Asia"],
+  ["eastus", "East US"],
+  ["eastus2", "East US 2"],
+  ["francecentral", "France Central"],
+  ["germanywestcentral", "Germany West Central"],
+  ["italynorth", "Italy North"],
+  ["japaneast", "Japan East"],
+  ["japanwest", "Japan West"],
+  ["koreacentral", "Korea Central"],
+  ["northcentralus", "North Central US"],
+  ["northeurope", "North Europe"],
+  ["norwayeast", "Norway East"],
+  ["qatarcentral", "Qatar Central"],
+  ["southafricanorth", "South Africa North"],
+  ["southcentralus", "South Central US"],
+  ["southeastasia", "Southeast Asia"],
+  ["swedencentral", "Sweden Central"],
+  ["switzerlandnorth", "Switzerland North"],
+  ["switzerlandwest", "Switzerland West"],
+  ["uaenorth", "UAE North"],
+  ["uksouth", "UK South"],
+  ["ukwest", "UK West"],
+  ["westcentralus", "West Central US"],
+  ["westeurope", "West Europe"],
+  ["westus", "West US"],
+  ["westus2", "West US 2"],
+  ["westus3", "West US 3"],
+]);
+
+/** A token is reused for new recordings while younger than this (tokens live 10 minutes). */
+export const TOKEN_REUSE_MS = 8 * 60_000;

@@ -4,12 +4,14 @@
  */
 
 import {
+  AZURE_REGIONS,
   LOCALES,
   MAX_RECORDING_MS,
   MAX_REFERENCE_CHARS,
   PLAYBACK_PADDING_MS,
   READING_WORDS_PER_MINUTE,
   TARGET_SAMPLE_RATE,
+  TOKEN_REUSE_MS,
 } from "./config.js";
 import { AppError, ERRORS } from "./errors.js";
 import { createKeyStore, normalizeRegion } from "./keyStore.js";
@@ -65,6 +67,17 @@ let credentials = null;
 let state = "loading";
 let run = null; // { session, recording, timerId, startedAt, autoStopReason }
 let player = null;
+let tokenCache = null; // { key, region, token, at }: reused so Record starts without a network round trip
+
+/** A token for the current credentials, fetched only when the cached one is too old. */
+async function getToken() {
+  const { key, region } = credentials;
+  const fresh = tokenCache && tokenCache.key === key && tokenCache.region === region && performance.now() - tokenCache.at < TOKEN_REUSE_MS;
+  if (fresh) return tokenCache.token;
+  const token = await fetchToken(key, region);
+  tokenCache = { key, region, token, at: performance.now() };
+  return token;
+}
 
 /** @param {"setup" | "idle" | "starting" | "recording" | "processing" | "results" | "unsupported"} next */
 function setState(next) {
@@ -95,7 +108,7 @@ function canRecord() {
 function showSetup() {
   const saved = store.load();
   ui.keyInput.value = saved?.key ?? "";
-  ui.regionInput.value = saved?.region ?? "";
+  selectRegion(saved?.region ?? "");
   ui.rememberInput.checked = saved?.remembered ?? false;
   ui.forgetKey.hidden = !saved;
   ui.keyMessage.textContent = "";
@@ -112,15 +125,15 @@ async function onSaveKey(event) {
     return;
   }
   if (!region) {
-    ui.keyMessage.textContent = `${ERRORS["region-invalid"].message}. ${ERRORS["region-invalid"].hint}`;
+    ui.keyMessage.textContent = "Choose the region of your key. It is shown under Keys and Endpoint in the Azure portal.";
     return;
   }
-  ui.regionInput.value = region;
   ui.saveKey.disabled = true;
   ui.keyMessage.textContent = "";
   ui.saveKey.textContent = "Checking…";
   try {
-    await fetchToken(key, region); // proves key and region work before saving
+    const token = await fetchToken(key, region); // proves key and region work before saving
+    tokenCache = { key, region, token, at: performance.now() };
     store.save({ key, region, remember: ui.rememberInput.checked });
     credentials = { key, region };
     updateKeyStatus();
@@ -138,17 +151,27 @@ async function onSaveKey(event) {
 function onForgetKey() {
   store.forget();
   credentials = null;
+  tokenCache = null;
   ui.keyInput.value = "";
-  ui.regionInput.value = "";
+  selectRegion("");
   ui.rememberInput.checked = false;
   ui.forgetKey.hidden = true;
   ui.keyMessage.textContent = "Key forgotten on this device.";
   ui.keyInput.focus();
 }
 
+/** Select a region, adding it to the list if it is a valid code missing from it. */
+function selectRegion(code) {
+  if (code && ![...ui.regionInput.options].some((o) => o.value === code)) {
+    ui.regionInput.add(new Option(code, code));
+  }
+  ui.regionInput.value = code;
+}
+
 function updateKeyStatus() {
   if (!credentials) return;
-  ui.keyStatusText.textContent = `Azure key for ${credentials.region}`;
+  const name = AZURE_REGIONS.find(([code]) => code === credentials.region)?.[1] ?? credentials.region;
+  ui.keyStatusText.textContent = `Azure key for ${name}`;
 }
 
 /* ---------- text ---------- */
@@ -182,7 +205,7 @@ async function startRun() {
   run = current;
 
   try {
-    const token = await fetchToken(credentials.key, credentials.region);
+    const token = await getToken();
     current.session = startSession({
       token,
       region: credentials.region,
@@ -193,7 +216,9 @@ async function startRun() {
       },
       onError: (error) => failRun(error),
     });
-    await current.session.started;
+    // Open the microphone while the Azure connection is still being set up: the push stream
+    // buffers audio, so the user can start reading as soon as the mic is live.
+    current.session.started.catch((error) => failRun(error));
     current.recording = await startRecording({
       onChunk: (pcm) => current.session.push(pcm),
       onAutoStop: (reason) => {
@@ -205,7 +230,10 @@ async function startRun() {
     await failRun(error);
     return;
   }
-  if (run !== current) return; // failed while starting
+  if (run !== current) {
+    current.recording?.stop(); // failed while the microphone was opening
+    return;
+  }
 
   current.startedAt = performance.now();
   current.timerId = setInterval(() => {
@@ -320,6 +348,7 @@ function init() {
     return;
   }
   for (const option of ui.locale.options) option.disabled = !LOCALES.includes(option.value);
+  for (const [code, name] of AZURE_REGIONS) ui.regionInput.add(new Option(`${name} (${code})`, code));
 
   ui.keyForm.addEventListener("submit", onSaveKey);
   ui.forgetKey.addEventListener("click", onForgetKey);

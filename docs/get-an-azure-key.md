@@ -33,17 +33,17 @@ You should see a page titled **Create Speech Services**.
 
 Click **Review + create**, then **Create**. Wait about a minute until you see **Your deployment is complete**, then click **Go to resource**.
 
-## 4. Copy the key and the region
+## 4. Copy the key and note the region
 
 1. In the left menu, open **Resource Management → Keys and Endpoint**.
 2. Copy **KEY 1** (the copy button is at the right of the field).
-3. Copy **Location/Region**. It looks like `westeurope`: lowercase, no spaces.
+3. Note **Location/Region**, for example `westeurope`. You will pick the same region from a list in the app.
 
-> Common mistake: copying the **Endpoint** (a long `https://…` address) instead of the region. The app needs the short region code, such as `westeurope`.
+> Pick the region of this resource, not the one you are in. A key works only with its own region.
 
 ## 5. Paste them into the app
 
-Open Pronunciation Coach, paste the key and the region, and press **Record**.
+Open Pronunciation Coach, paste the key, choose the region from the list, and press **Save key**. The app checks the key right away.
 
 ## Keep your key safe
 
@@ -54,5 +54,5 @@ Open Pronunciation Coach, paste the key and the region, and press **Record**.
 ## Problems
 
 - **Free F0 is not in the Pricing tier list.** Azure allows one free Speech resource per region in each subscription. Either you already have one in this region (use its key instead), or you deleted one recently. In that case, pick a different region, or purge the deleted resource and wait up to 48 hours.
-- **"Key or region rejected" in the app.** Check that the region is the short code from step 4 and that it belongs to the same resource as the key.
+- **"Key or region rejected" in the app.** Check that the region in the list is the one shown in step 4 for the same resource as the key.
 - **"This key is already in use."** A free key allows one recording at a time. Close other tabs or devices that use the same key, and try again.

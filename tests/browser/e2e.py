@@ -35,8 +35,8 @@ def setup_page(browser, fx=None, token_status=200, real_sdk=False, **ctx):
         headers={"Access-Control-Allow-Origin": "*"}))
     return context, page, log
 
-def save_key(page, region="West Europe", remember=True):
-    page.fill("#keyInput", KEY); page.fill("#regionInput", region)
+def save_key(page, region="westeurope", remember=True):
+    page.fill("#keyInput", KEY); page.select_option("#regionInput", region)
     if remember: page.check("#rememberInput")
     page.click("#saveKey")
 
@@ -58,7 +58,7 @@ with sync_playwright() as p:
     page.screenshot(path=f"{S}/shots/1-setup.png", full_page=True)
     save_key(page)
     page.wait_for_selector("body[data-state=idle]", timeout=5000)
-    check("region normalized and shown", "westeurope" in page.text_content("#keyStatusText"), page.text_content("#keyStatusText"))
+    check("region shown by name", "West Europe" in page.text_content("#keyStatusText"), page.text_content("#keyStatusText"))
     check("record disabled with empty text", page.is_disabled("#recordButton"))
     page.fill("#text", en["referenceText"])
     check("record enabled with text", not page.is_disabled("#recordButton"))
@@ -66,6 +66,7 @@ with sync_playwright() as p:
     page.click("#recordButton")
     page.wait_for_selector("body[data-state=recording]", timeout=10000)
     time.sleep(2.5)
+    check("recording starts from a cached token (no second issueToken)", sum("issueToken" in u for u in log["requests"]) == 1, str(sum("issueToken" in u for u in log["requests"])))
     check("live transcript shows partial", "every morning" in page.text_content("#live"))
     check("timer counts down", page.text_content("#timer") in ("1:58", "1:57", "1:59"), page.text_content("#timer"))
     page.screenshot(path=f"{S}/shots/3-recording.png", full_page=True)
@@ -78,6 +79,8 @@ with sync_playwright() as p:
     kinds = page.eval_on_selector_all(".reading .word", "els => els.map(e => e.className.split('--')[1])")
     check("words rendered with marks", kinds.count("inserted") == 1 and kinds.count("mispronounced") >= 1 and kinds.count("omitted") > 50, str({k: kinds.count(k) for k in set(kinds)}))
     check("omitted words are not clickable", page.eval_on_selector_all(".reading .word--omitted", "els => els.every(e => e.tagName === 'SPAN')"))
+    order = page.eval_on_selector_all("#results > *", "els => els.map(e => e.className)")
+    check("reading, then legend, then summary", order[0] == "reading" and order[1] == "legend" and order[-1] == "summary", str(order))
     page.screenshot(path=f"{S}/shots/4-results.png", full_page=True)
     page.hover(".reading .word--mispronounced")
     tip = page.text_content("#tooltip")
@@ -140,8 +143,8 @@ with sync_playwright() as p:
     page.goto(BASE); save_key(page, region="eastus")
     page.wait_for_function("document.querySelector('#keyMessage').textContent.length > 0")
     check("401 -> key or region rejected", "Key or region rejected" in page.text_content("#keyMessage"), page.text_content("#keyMessage"))
-    page.fill("#regionInput", "east_us"); page.click("#saveKey")
-    check("non-code region rejected locally", "short code" in page.text_content("#keyMessage"))
+    page.select_option("#regionInput", ""); page.click("#saveKey")
+    check("missing region asked for", "Choose the region" in page.text_content("#keyMessage"))
     ctx.close()
 
     # 6. microphone denied

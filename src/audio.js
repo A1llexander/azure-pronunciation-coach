@@ -8,7 +8,13 @@
  */
 
 import { createDownsampler, floatToInt16, int16ToFloat, createSilenceDetector } from "./pcm.js";
-import { TARGET_SAMPLE_RATE, MAX_RECORDING_MS, SILENCE_RMS_THRESHOLD, SILENCE_TIMEOUT_MS } from "./config.js";
+import {
+  TARGET_SAMPLE_RATE,
+  MAX_RECORDING_MS,
+  SILENCE_RMS_THRESHOLD,
+  SILENCE_RELATIVE_LEVEL,
+  SILENCE_TIMEOUT_MS,
+} from "./config.js";
 import { AppError, classifyMicError } from "./errors.js";
 
 const MAX_SAMPLES = Math.round((MAX_RECORDING_MS / 1000) * TARGET_SAMPLE_RATE);
@@ -70,6 +76,7 @@ export async function startRecording({ onChunk, onAutoStop }) {
   const downsample = createDownsampler(context.sampleRate, TARGET_SAMPLE_RATE);
   const isSilentLongEnough = createSilenceDetector({
     threshold: SILENCE_RMS_THRESHOLD,
+    relative: SILENCE_RELATIVE_LEVEL,
     timeoutMs: SILENCE_TIMEOUT_MS,
     sampleRate: TARGET_SAMPLE_RATE,
   });

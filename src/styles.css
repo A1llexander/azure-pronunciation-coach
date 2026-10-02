@@ -149,7 +149,6 @@ button:disabled {
   text-underline-offset: 2px;
 }
 
-input[type="text"],
 input[type="password"],
 select,
 textarea {
@@ -348,12 +347,13 @@ body:not([data-state="recording"]) .timer {
 /* Results */
 
 .results {
-  margin-top: 2.5rem;
-  border-top: 1px solid var(--line);
-  padding-top: 2rem;
+  margin-top: 1.75rem;
 }
 
 .summary {
+  margin-top: 2.25rem;
+  border-top: 1px solid var(--line);
+  padding-top: 2rem;
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -454,24 +454,51 @@ body:not([data-state="recording"]) .timer {
 }
 
 .result-note {
-  margin: 1.5rem 0 0;
+  margin: 1rem 0 0;
   color: var(--muted);
 }
 
+/* Key to the marks: a separate card in the UI face so it never reads as part of the text. */
 .legend {
   display: flex;
   flex-wrap: wrap;
+  align-items: center;
   gap: 0.4rem 1.5rem;
-  margin: 2rem 0 0.75rem;
-  padding: 0;
+  margin: 1.25rem 0 0;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  padding: 0.6rem 0.9rem;
   list-style: none;
   color: var(--muted);
-  font-size: 0.875rem;
+  font: 0.875rem/1.5 var(--ui);
 }
 
 .legend .word {
   cursor: default;
-  font-size: 1rem;
+  color: var(--ink);
+  font: 1rem/1.25 var(--reading);
+}
+
+.legend .word--omitted {
+  color: var(--muted);
+}
+
+.legend .word--inserted {
+  color: var(--pencil-blue);
+  font: 700 1.15rem/1 var(--ui);
+}
+
+.legend li:last-child {
+  margin-left: auto;
+}
+
+/* The annotated reading sits on a page-like surface right under the recorder. */
+.results > .reading {
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--surface);
+  padding: 0.75rem 1rem;
 }
 
 /* The annotated reading: proofreader's marks on the text. */
