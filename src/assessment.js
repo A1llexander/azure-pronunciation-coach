@@ -222,3 +222,14 @@ export function tooltipPhonemes(word) {
   if (!word || word.phonemes.length === 0) return [];
   return word.phonemes.every((p) => p.name.length > 0) ? word.phonemes : [];
 }
+
+/**
+ * Rough reading time of a text, to warn before it exceeds the recording limit.
+ *
+ * @param {string} text
+ * @param {number} wordsPerMinute
+ * @returns {number} Milliseconds.
+ */
+export function estimateReadingMs(text, wordsPerMinute) {
+  return (tokenizeReference(text).length / wordsPerMinute) * 60_000;
+}

@@ -8,6 +8,7 @@ import {
   alignWords,
   assess,
   tooltipPhonemes,
+  estimateReadingMs,
 } from "../src/assessment.js";
 
 const fixture = JSON.parse(readFileSync(new URL("./fixtures/en-US-continuous-3seg.json", import.meta.url), "utf8"));
@@ -259,5 +260,12 @@ describe("assess: real es-ES fixture (21 segments)", () => {
     assert.equal(result.items.find((it) => it.text === "aire").kind, "omitted");
     const recognized = fx.segments.flatMap((s) => s.NBest[0].Words).length;
     assert.equal(result.items.filter((it) => it.spoken).length, recognized);
+  });
+});
+
+describe("estimateReadingMs", () => {
+  test("counts words, not punctuation", () => {
+    assert.equal(estimateReadingMs("one, two — three!", 60), 3000);
+    assert.equal(estimateReadingMs("", 130), 0);
   });
 });
