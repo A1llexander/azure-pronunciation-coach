@@ -20,7 +20,7 @@ import { startRecording, createPlayer } from "./audio.js";
 import { assess, estimateReadingMs } from "./assessment.js";
 import { playbackRange } from "./segments.js";
 import { renderResults } from "./render.js";
-import { SAMPLES, findSample } from "./samples.js";
+import { DEFAULT_TEXTS, isReplaceable } from "./samples.js";
 
 const $ = (id) => document.getElementById(id);
 const ui = {
@@ -38,7 +38,6 @@ const ui = {
   keyMessage: $("keyMessage"),
   practice: $("practice"),
   locale: $("locale"),
-  sample: $("sample"),
   text: $("text"),
   charCount: $("charCount"),
   lengthWarning: $("lengthWarning"),
@@ -95,7 +94,6 @@ function setState(next) {
 
   ui.text.readOnly = busy;
   ui.locale.disabled = busy;
-  ui.sample.disabled = busy;
   ui.recordButton.textContent = next === "recording" ? "Stop" : "Record";
   ui.recordButton.disabled = next === "starting" || next === "processing" || (!busy && !canRecord());
   ui.status.textContent = STATUS_TEXT[next] ?? "";
@@ -179,36 +177,13 @@ function updateKeyStatus() {
 
 /* ---------- text ---------- */
 
-/** Fill the sample list for a language. */
-function fillSamples(locale) {
-  ui.sample.replaceChildren(new Option("Your own text", ""));
-  for (const sample of SAMPLES[locale] ?? []) ui.sample.add(new Option(sample.title, sample.id));
-}
-
-function useSample(locale, id) {
-  const sample = (SAMPLES[locale] ?? []).find((s) => s.id === id) ?? SAMPLES[locale]?.[0];
-  if (!sample) return;
-  ui.text.value = sample.text;
+/** Switching language swaps the default text (if untouched) for the new language's; own text stays. */
+function onLocaleChange() {
+  if (isReplaceable(ui.text.value)) ui.text.value = DEFAULT_TEXTS[ui.locale.value] ?? "";
   onTextInput();
 }
 
-function onSampleChange() {
-  if (ui.sample.value) useSample(ui.locale.value, ui.sample.value);
-  else ui.text.focus();
-}
-
-/** Switching language swaps an untouched sample for one in the new language; own text stays. */
-function onLocaleChange() {
-  const locale = ui.locale.value;
-  const current = findSample(ui.text.value);
-  fillSamples(locale);
-  if (!ui.text.value.trim() || (current && current.locale !== locale)) useSample(locale);
-  else onTextInput();
-}
-
 function onTextInput() {
-  const found = findSample(ui.text.value);
-  ui.sample.value = found && found.locale === ui.locale.value ? found.id : "";
   const length = ui.text.value.length;
   ui.charCount.textContent = `${length} / ${MAX_REFERENCE_CHARS}`;
   ui.lengthWarning.hidden = estimateReadingMs(ui.text.value, READING_WORDS_PER_MINUTE) <= MAX_RECORDING_MS;
@@ -387,7 +362,6 @@ function init() {
   ui.changeKey.addEventListener("click", showSetup);
   ui.text.addEventListener("input", onTextInput);
   ui.locale.addEventListener("change", onLocaleChange);
-  ui.sample.addEventListener("change", onSampleChange);
   ui.recordButton.addEventListener("click", onRecordButton);
   document.addEventListener("keydown", (event) => {
     if (event.key === "Escape") ui.tooltip.hidden = true;
@@ -398,9 +372,8 @@ function init() {
     credentials = { key: saved.key, region: saved.region };
     updateKeyStatus();
   }
-  fillSamples(ui.locale.value);
-  if (!ui.text.value.trim()) useSample(ui.locale.value);
-  else onTextInput();
+  if (!ui.text.value.trim()) ui.text.value = DEFAULT_TEXTS[ui.locale.value] ?? "";
+  onTextInput();
   if (credentials) setState("idle");
   else showSetup();
 }
