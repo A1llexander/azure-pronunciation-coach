@@ -13,6 +13,7 @@ import {
   MAX_RECORDING_MS,
   SILENCE_RMS_THRESHOLD,
   SILENCE_RELATIVE_LEVEL,
+  SILENCE_NOISE_MARGIN,
   SILENCE_TIMEOUT_MS,
 } from "./config.js";
 import { AppError, classifyMicError } from "./errors.js";
@@ -77,6 +78,7 @@ export async function startRecording({ onChunk, onAutoStop }) {
   const isSilentLongEnough = createSilenceDetector({
     threshold: SILENCE_RMS_THRESHOLD,
     relative: SILENCE_RELATIVE_LEVEL,
+    noiseMargin: SILENCE_NOISE_MARGIN,
     timeoutMs: SILENCE_TIMEOUT_MS,
     sampleRate: TARGET_SAMPLE_RATE,
   });

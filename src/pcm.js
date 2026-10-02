@@ -130,22 +130,28 @@ export function acRms(samples) {
 /**
  * Stateful silence detector over consecutive chunks.
  *
- * A chunk is silent when its AC RMS is below max(threshold, relative × loudest chunk so far):
- * the absolute floor covers a quiet room, the relative level covers background noise once the
- * speaker's level is known.
+ * A chunk is silent when its AC RMS is below the largest of:
+ * - threshold: absolute floor for a quiet room;
+ * - relative × loudest chunk so far: background noise once the speaker's level is known;
+ * - noiseMargin × quietest chunk so far: the microphone's own noise (laptop mics).
  *
- * @param {{threshold: number, relative: number, timeoutMs: number, sampleRate: number}} options
+ * @param {{threshold: number, relative: number, noiseMargin: number, timeoutMs: number, sampleRate: number}} options
  * @returns {(chunk: Float32Array) => boolean} Feed each chunk in order; returns true once
  *   silence has lasted at least timeoutMs without interruption.
  */
-export function createSilenceDetector({ threshold, relative, timeoutMs, sampleRate }) {
+export function createSilenceDetector({ threshold, relative, noiseMargin, timeoutMs, sampleRate }) {
   const limit = Math.round((timeoutMs / 1000) * sampleRate);
   let silentSamples = 0;
   let peak = 0;
+  let floor = Infinity;
   return function isSilentLongEnough(chunk) {
     const level = acRms(chunk);
     peak = Math.max(peak, level);
-    if (level < Math.max(threshold, peak * relative)) silentSamples += chunk.length;
+    if (level > 1e-6) floor = Math.min(floor, level); // digital zeros while the mic warms up are not noise
+    // Only trust the noise floor once something clearly louder than it has been heard;
+    // until then the "floor" may be speech itself.
+    const noise = Number.isFinite(floor) && floor * noiseMargin < peak ? floor * noiseMargin : 0;
+    if (level < Math.max(threshold, peak * relative, noise)) silentSamples += chunk.length;
     else silentSamples = 0;
     return silentSamples >= limit;
   };

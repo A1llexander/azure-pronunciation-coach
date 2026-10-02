@@ -256,7 +256,8 @@ textarea {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 0.75rem 1rem;
+  justify-content: center;
+  gap: 0.5rem 1rem;
 }
 
 .record {
@@ -306,12 +307,21 @@ body:not([data-state="recording"]) .timer {
 }
 
 .status {
+  flex-basis: 100%;
   margin: 0;
   color: var(--muted);
+  text-align: center;
+}
+
+.status:empty {
+  display: none;
+}
+
+.live:empty {
+  display: none;
 }
 
 .live {
-  min-height: 1.6em;
   margin: 1rem 0 0;
   color: var(--muted);
   font: italic 1.0625rem/1.6 var(--reading);
@@ -347,7 +357,7 @@ body:not([data-state="recording"]) .timer {
 /* Results */
 
 .results {
-  margin-top: 1.75rem;
+  margin-top: 1rem;
 }
 
 .summary {

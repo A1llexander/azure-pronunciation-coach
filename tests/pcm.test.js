@@ -109,7 +109,7 @@ describe("rms", () => {
 });
 
 describe("createSilenceDetector", () => {
-  const options = { threshold: 0.01, relative: 0.15, timeoutMs: 1000, sampleRate: 16000 };
+  const options = { threshold: 0.01, relative: 0.15, noiseMargin: 3, timeoutMs: 1000, sampleRate: 16000 };
   const chunk = (value) => new Float32Array(1600).map((_, i) => value * (i % 2 ? 1 : -1)); // 100 ms, AC level = value
   const quiet = chunk(0.001);
   const loud = chunk(0.2);
@@ -134,6 +134,27 @@ describe("createSilenceDetector", () => {
     detect(loud);
     for (let i = 0; i < 9; i += 1) assert.equal(detect(noise), false);
     assert.equal(detect(noise), true);
+  });
+
+  test("laptop mic: quiet speech over mic noise above the floor still stops on silence", () => {
+    const detect = createSilenceDetector(options);
+    const micNoise = chunk(0.015); // above 0.01, and above 15% of the quiet speech
+    const quietSpeech = chunk(0.06);
+    detect(micNoise);
+    for (let i = 0; i < 5; i += 1) assert.equal(detect(quietSpeech), false);
+    for (let i = 0; i < 9; i += 1) assert.equal(detect(micNoise), false);
+    assert.equal(detect(micNoise), true);
+  });
+
+  test("speech from the first chunk is not taken as the noise floor", () => {
+    const detect = createSilenceDetector(options);
+    for (let i = 0; i < 30; i += 1) assert.equal(detect(chunk(0.06)), false);
+  });
+
+  test("quiet speech is not mistaken for silence", () => {
+    const detect = createSilenceDetector(options);
+    detect(chunk(0.015));
+    for (let i = 0; i < 30; i += 1) assert.equal(detect(chunk(0.06)), false);
   });
 
   test("a DC offset alone is silence", () => {
