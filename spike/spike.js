@@ -259,6 +259,7 @@ function startSession({ setup, locale, referenceText, label, onPartial, onError 
     events: [],
     recognizedReasons: [],
     segments: [],
+    partials: [], // last interim text per utterance: shows words the final result may drop
     canceled: null,
     pushedSamples: 0,
   };
@@ -273,13 +274,18 @@ function startSession({ setup, locale, referenceText, label, onPartial, onError 
     run.events.push({ event: "sessionStopped", ms: stamp() });
     resolveDone("sessionStopped");
   };
-  recognizer.recognizing = (_s, e) => onPartial?.(e.result.text);
+  let partialIndex = 0;
+  recognizer.recognizing = (_s, e) => {
+    run.partials[partialIndex] = { ms: stamp(), text: e.result.text };
+    onPartial?.(e.result.text);
+  };
   recognizer.recognized = (_s, e) => {
     const reason = sdk.ResultReason[e.result.reason];
     run.recognizedReasons.push(reason);
     run.events.push({ event: `recognized:${reason}`, ms: stamp() });
     const json = e.result.properties.getProperty(sdk.PropertyId.SpeechServiceResponse_JsonResult);
     if (json) run.segments.push(JSON.parse(json));
+    if (run.partials[partialIndex]) partialIndex += 1;
     log(`[${label}] recognized ${reason}: ${e.result.text ?? ""}`);
   };
   recognizer.canceled = (_s, e) => {
@@ -743,7 +749,19 @@ const probes = {
 
 /* ---------- download ---------- */
 
+let downloadedCount = -1;
+
+function unsavedCount() {
+  return findings.runs.length + findings.probes.length;
+}
+
+// Findings live only in this page's memory; a reload loses them.
+window.addEventListener("beforeunload", (event) => {
+  if (unsavedCount() > 0 && unsavedCount() !== downloadedCount) event.preventDefault();
+});
+
 function onDownload() {
+  downloadedCount = unsavedCount();
   findings.notes = $("notes").value;
   findings.meta.downloadedAt = new Date().toISOString();
   const json = redact(JSON.stringify(findings, null, 2));
