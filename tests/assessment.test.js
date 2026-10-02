@@ -238,3 +238,26 @@ describe("assess: real en-US insertion/omission runs (scripted mode)", () => {
     }
   });
 });
+
+describe("assess: real es-ES fixture (21 segments)", () => {
+  const fx = JSON.parse(readFileSync(new URL("./fixtures/es-ES-continuous-21seg.json", import.meta.url), "utf8"));
+  const result = assess(fx.referenceText, fx.segments);
+
+  test("phoneme names are empty, so no tooltip phonemes are shown", () => {
+    const spoken = result.items.filter((it) => it.spoken);
+    assert.ok(spoken.some((it) => it.spoken.phonemes.length > 0));
+    assert.ok(spoken.every((it) => tooltipPhonemes(it.spoken).length === 0));
+  });
+
+  test("no prosody field, so prosody is null and the 3-score weighting is used", () => {
+    assert.equal(result.scores.prosody, null);
+    const s = [result.scores.accuracy, result.scores.completeness, result.scores.fluency].sort((a, b) => a - b);
+    assert.ok(Math.abs(result.scores.pronunciation - (s[0] * 0.6 + (s[1] + s[2]) * 0.2)) < 1e-9);
+  });
+
+  test("skipped 'aire' is omitted and every recognized word is placed once", () => {
+    assert.equal(result.items.find((it) => it.text === "aire").kind, "omitted");
+    const recognized = fx.segments.flatMap((s) => s.NBest[0].Words).length;
+    assert.equal(result.items.filter((it) => it.spoken).length, recognized);
+  });
+});
