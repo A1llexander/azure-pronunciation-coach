@@ -1,6 +1,6 @@
 import { test, describe } from "node:test";
 import assert from "node:assert/strict";
-import { createDownsampler, floatToInt16, int16ToFloat, rms } from "../src/pcm.js";
+import { createDownsampler, floatToInt16, int16ToFloat, rms, createSilenceDetector } from "../src/pcm.js";
 
 function sine(length, rate, freq, amp = 0.5) {
   const out = new Float32Array(length);
@@ -105,5 +105,25 @@ describe("rms", () => {
   test("empty input is 0", () => assert.equal(rms(new Float32Array(0)), 0));
   test("constant signal equals its magnitude", () => {
     assert.ok(Math.abs(rms(new Float32Array(100).fill(-0.3)) - 0.3) < 1e-6);
+  });
+});
+
+describe("createSilenceDetector", () => {
+  const options = { threshold: 0.01, timeoutMs: 1000, sampleRate: 16000 };
+  const quiet = new Float32Array(1600).fill(0.001); // 100 ms
+  const loud = new Float32Array(1600).fill(0.2);
+
+  test("fires after exactly timeoutMs of continuous silence", () => {
+    const detect = createSilenceDetector(options);
+    for (let i = 0; i < 9; i += 1) assert.equal(detect(quiet), false);
+    assert.equal(detect(quiet), true);
+  });
+
+  test("any loud chunk resets the count", () => {
+    const detect = createSilenceDetector(options);
+    for (let i = 0; i < 9; i += 1) detect(quiet);
+    assert.equal(detect(loud), false);
+    for (let i = 0; i < 9; i += 1) assert.equal(detect(quiet), false);
+    assert.equal(detect(quiet), true);
   });
 });

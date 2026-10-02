@@ -109,3 +109,21 @@ function assertPositiveInteger(value, name) {
     throw new RangeError(`${name} must be a positive integer, got ${value}`);
   }
 }
+
+/**
+ * Stateful silence detector over consecutive chunks.
+ *
+ * @param {{threshold: number, timeoutMs: number, sampleRate: number}} options
+ *   threshold: RMS level (Float32 scale) below which a chunk counts as silent.
+ * @returns {(chunk: Float32Array) => boolean} Feed each chunk in order; returns true once
+ *   silence has lasted at least timeoutMs without interruption.
+ */
+export function createSilenceDetector({ threshold, timeoutMs, sampleRate }) {
+  const limit = Math.round((timeoutMs / 1000) * sampleRate);
+  let silentSamples = 0;
+  return function isSilentLongEnough(chunk) {
+    if (rms(chunk) < threshold) silentSamples += chunk.length;
+    else silentSamples = 0;
+    return silentSamples >= limit;
+  };
+}
