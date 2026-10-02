@@ -229,15 +229,6 @@ textarea {
   margin-bottom: 0.75rem;
 }
 
-.practice-head label + select {
-  margin-right: 0.75rem;
-}
-
-#sample {
-  flex: 1 1 14rem;
-  min-width: 0;
-  margin-right: 0;
-}
 
 .practice-head label {
   font-weight: 600;

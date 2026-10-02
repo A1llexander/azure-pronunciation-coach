@@ -1,28 +1,23 @@
 import { test, describe } from "node:test";
 import assert from "node:assert/strict";
-import { SAMPLES, findSample } from "../src/samples.js";
-import { LOCALES, MAX_REFERENCE_CHARS, MAX_RECORDING_MS, READING_WORDS_PER_MINUTE } from "../src/config.js";
-import { estimateReadingMs } from "../src/assessment.js";
+import { DEFAULT_TEXTS, isReplaceable } from "../src/samples.js";
+import { LOCALES } from "../src/config.js";
+import { tokenizeReference } from "../src/assessment.js";
 
-describe("samples", () => {
-  test("every supported language has samples", () => {
-    for (const locale of LOCALES) assert.ok(SAMPLES[locale]?.length > 0, locale);
-  });
-
-  test("each sample fits the text limit and the 2-minute recording", () => {
-    for (const list of Object.values(SAMPLES)) {
-      for (const s of list) {
-        assert.ok(s.text.length <= MAX_REFERENCE_CHARS, s.id);
-        assert.ok(estimateReadingMs(s.text, READING_WORDS_PER_MINUTE) < MAX_RECORDING_MS, s.id);
-      }
+describe("default texts", () => {
+  test("every supported language has a short text with pause punctuation", () => {
+    for (const locale of LOCALES) {
+      const text = DEFAULT_TEXTS[locale];
+      const words = tokenizeReference(text).length;
+      assert.ok(words >= 20 && words <= 50, `${locale}: ${words} words`);
+      assert.match(text, /[,:]/);
     }
   });
 
-  test("ids are unique; findSample recognizes an unchanged sample only", () => {
-    const ids = Object.values(SAMPLES).flat().map((s) => s.id);
-    assert.equal(new Set(ids).size, ids.length);
-    const first = SAMPLES["es-ES"][0];
-    assert.deepEqual(findSample(`  ${first.text}\n`), { locale: "es-ES", id: first.id });
-    assert.equal(findSample(first.text + " extra"), null);
+  test("only empty or untouched default texts are replaced on language change", () => {
+    assert.equal(isReplaceable(""), true);
+    assert.equal(isReplaceable(` ${DEFAULT_TEXTS["en-US"]}\n`), true);
+    assert.equal(isReplaceable(DEFAULT_TEXTS["es-ES"] + " más"), false);
+    assert.equal(isReplaceable("My own text."), false);
   });
 });
