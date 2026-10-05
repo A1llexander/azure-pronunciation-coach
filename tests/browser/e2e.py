@@ -193,6 +193,18 @@ with sync_playwright() as p:
     check("real SDK: no CSP violations", not csp, str(csp))
     ctx.close()
 
+    # 7b. token older than 5 minutes (e.g. after sleep) is fetched again; bad stored region is dropped
+    ctx, page, log = setup_page(browser, en)
+    page.goto(BASE); save_key(page, region="eastus"); page.wait_for_selector("body[data-state=idle]")
+    page.evaluate("() => { const real = Date.now; Date.now = () => real() + 6 * 60_000; }")
+    record(page, "Hello world.", 1)
+    page.wait_for_selector("body[data-state=results], #error:not([hidden])", timeout=15000)
+    check("token refreshed after 5 minutes of wall time", sum("issueToken" in u for u in log["requests"]) == 2, str(sum("issueToken" in u for u in log["requests"])))
+    page.evaluate("() => localStorage.setItem('pronunciation-coach.region', 'x.evil.com#')")
+    page.reload(); page.wait_for_selector("#setup:not([hidden])", timeout=5000)
+    check("unknown stored region sends the user to key setup and clears storage", page.evaluate("localStorage.length") == 0)
+    ctx.close()
+
     # 8. mobile -> notice
     ctx = browser.new_context(**p.devices["iPhone 13"]); page = ctx.new_page(); page.goto(BASE)
     check("mobile shows desktop-only notice", page.is_visible("#unsupported") and not page.is_visible("#practice"))

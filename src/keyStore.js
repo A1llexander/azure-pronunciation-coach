@@ -6,15 +6,19 @@
 const KEY_ITEM = "pronunciation-coach.key";
 const REGION_ITEM = "pronunciation-coach.region";
 
+import { AZURE_REGIONS } from "./config.js";
+
+const KNOWN_REGIONS = new Set(AZURE_REGIONS.map(([code]) => code));
+
 /**
- * Normalize a region typed by the user ("West Europe" -> "westeurope").
+ * Whether a value is one of the Azure Speech region codes the app offers. The region becomes
+ * part of request URLs, so only listed codes are used, including values read back from storage.
  *
- * @param {string} raw
- * @returns {string | null} Region code, or null if it cannot be one.
+ * @param {unknown} code
+ * @returns {boolean}
  */
-export function normalizeRegion(raw) {
-  const region = raw.replace(/\s+/g, "").toLowerCase();
-  return /^[a-z0-9]+$/.test(region) ? region : null;
+export function isKnownRegion(code) {
+  return typeof code === "string" && KNOWN_REGIONS.has(code);
 }
 
 /**
@@ -51,7 +55,14 @@ export function createKeyStore(storage = defaultStorage()) {
       if (memory) return { ...memory, remembered: read(KEY_ITEM) !== null };
       const key = read(KEY_ITEM);
       const region = read(REGION_ITEM);
-      return key && region ? { key, region, remembered: true } : null;
+      if (!key || !region) return null;
+      if (!isKnownRegion(region)) {
+        // Corrupted, stale or foreign value: drop it with the key and ask again.
+        remove(KEY_ITEM);
+        remove(REGION_ITEM);
+        return null;
+      }
+      return { key, region, remembered: true };
     },
 
     /** @param {{key: string, region: string, remember: boolean}} credentials */

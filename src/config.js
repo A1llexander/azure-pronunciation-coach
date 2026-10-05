@@ -101,5 +101,9 @@ export const AZURE_REGIONS = Object.freeze([
   ["westus3", "West US 3"],
 ]);
 
-/** A token is reused for new recordings while younger than this (tokens live 10 minutes). */
-export const TOKEN_REUSE_MS = 8 * 60_000;
+/**
+ * A token is reused for new recordings while younger than this. Tokens live 10 minutes; 5 leaves room
+ * for a 2-minute recording plus scoring. Measured with Date.now(), which keeps counting while the
+ * computer sleeps (performance.now() does not on some systems).
+ */
+export const TOKEN_REUSE_MS = 5 * 60_000;
