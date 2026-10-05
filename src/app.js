@@ -7,6 +7,7 @@ import {
   AZURE_REGIONS,
   LOCALES,
   MAX_RECORDING_MS,
+  PAUSE_MAP_LOCALES,
   MAX_REFERENCE_CHARS,
   PLAYBACK_PADDING_MS,
   READING_WORDS_PER_MINUTE,
@@ -19,7 +20,8 @@ import { fetchToken, startSession } from "./azure.js";
 import { startRecording, createPlayer } from "./audio.js";
 import { assess, estimateReadingMs } from "./assessment.js";
 import { playbackRange } from "./segments.js";
-import { renderResults } from "./render.js";
+import { renderPauseMap, renderResults } from "./render.js";
+import { pauseMap } from "./pauseMap.js";
 import { DEFAULT_TEXTS, isReplaceable } from "./samples.js";
 
 const $ = (id) => document.getElementById(id);
@@ -41,6 +43,9 @@ const ui = {
   text: $("text"),
   charCount: $("charCount"),
   lengthWarning: $("lengthWarning"),
+  pauseToggle: $("pauseToggle"),
+  pauseMap: $("pauseMap"),
+  pauseMapText: $("pauseMapText"),
   recordButton: $("recordButton"),
   timer: $("timer"),
   status: $("status"),
@@ -174,16 +179,49 @@ function updateKeyStatus() {
 
 /* ---------- text ---------- */
 
+/* ---------- pause hints ---------- */
+
+/**
+ * The pause view replaces the text box with the same text, gaps highlighted, so the user can read
+ * from it while recording. Editing needs the text box, so the view is closed to edit.
+ */
+function setPauseView(shown) {
+  const show = shown && PAUSE_MAP_LOCALES.includes(ui.locale.value) && ui.text.value.trim().length > 0;
+  if (show) {
+    renderPauseMap(ui.pauseMapText, pauseMap(ui.text.value));
+    ui.pauseMapText.lang = ui.locale.value;
+  }
+  ui.pauseMap.hidden = !show;
+  ui.text.hidden = show;
+  ui.pauseToggle.setAttribute("aria-pressed", String(show));
+  ui.pauseToggle.textContent = show ? "Edit text" : "Show pauses";
+}
+
+function updatePauseToggle() {
+  const offered = PAUSE_MAP_LOCALES.includes(ui.locale.value);
+  ui.pauseToggle.hidden = !offered;
+  ui.pauseToggle.disabled = !ui.text.value.trim();
+  if (!offered && !ui.pauseMap.hidden) setPauseView(false);
+}
+
+function onPauseToggle() {
+  const showing = ui.pauseToggle.getAttribute("aria-pressed") === "true";
+  setPauseView(!showing);
+  if (showing) ui.text.focus();
+}
+
 /** Switching language swaps the default text (if untouched) for the new language's; own text stays. */
 function onLocaleChange() {
   if (isReplaceable(ui.text.value)) ui.text.value = DEFAULT_TEXTS[ui.locale.value] ?? "";
   onTextInput();
+  if (!ui.pauseMap.hidden) setPauseView(true); // re-render for the new text
 }
 
 function onTextInput() {
   const length = ui.text.value.length;
   ui.charCount.textContent = `${length} / ${MAX_REFERENCE_CHARS}`;
   ui.lengthWarning.hidden = estimateReadingMs(ui.text.value, READING_WORDS_PER_MINUTE) <= MAX_RECORDING_MS;
+  updatePauseToggle();
   if (state === "idle" || state === "results") setState(state);
 }
 
@@ -359,6 +397,7 @@ function init() {
   ui.changeKey.addEventListener("click", showSetup);
   ui.text.addEventListener("input", onTextInput);
   ui.locale.addEventListener("change", onLocaleChange);
+  ui.pauseToggle.addEventListener("click", onPauseToggle);
   ui.recordButton.addEventListener("click", onRecordButton);
   document.addEventListener("keydown", (event) => {
     if (event.key === "Escape") ui.tooltip.hidden = true;

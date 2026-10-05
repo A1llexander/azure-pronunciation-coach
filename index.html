@@ -69,7 +69,18 @@
         </select>
       </div>
       <textarea id="text" rows="7" maxlength="1500" spellcheck="false" placeholder="Paste a paragraph you want to read aloud." aria-label="Text to read"></textarea>
+      <div class="pause-map" id="pauseMap" hidden>
+        <p class="pause-map-text" id="pauseMapText"></p>
+        <p class="pause-map-legend">
+          <span class="legend-item"><span class="pm-sample">a<span class="pm-gap pm-gap--pause"> </span>b</span> Pause</span>
+          <span class="legend-item"><span class="pm-sample">a<span class="pm-gap pm-gap--optional"> </span>b</span> Short pause if you like</span>
+          <span class="legend-item"><span class="pm-sample"><span class="pm-group">a b</span></span> Say together, no pause</span>
+          <span class="legend-item">No mark: your choice</span>
+        </p>
+        <p class="pause-map-note">Hints from simple rules for English, not from Azure. Azure's scoring may expect pauses elsewhere.</p>
+      </div>
       <p class="text-meta">
+        <button type="button" class="link" id="pauseToggle" aria-pressed="false" aria-controls="pauseMap">Show pauses</button>
         <span id="charCount">0 / 1500</span>
         <span class="warning" id="lengthWarning" hidden>This text may take longer than 2 minutes to read. Recording stops at 2:00.</span>
       </p>

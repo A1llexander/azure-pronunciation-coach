@@ -13,6 +13,9 @@
   --track: #e2e7ec;
   --focus: #2457c5;
   --monotone: #7b8ba3;
+  --pm-pause: #f2b8a2;
+  --pm-optional: #f7dfd3;
+  --pm-group: #2457c5;
 
   --reading: Charter, "Bitstream Charter", "Sitka Text", Cambria, Georgia, serif;
   --ui: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
@@ -36,6 +39,9 @@
     --track: #2a343f;
     --focus: #8fb0ff;
     --monotone: #7d8ca3;
+    --pm-pause: #7a3b28;
+    --pm-optional: #4a2d24;
+    --pm-group: #8fb0ff;
     color-scheme: dark;
   }
 }
@@ -241,6 +247,62 @@ textarea {
   resize: vertical;
   padding: 0.9rem 1rem;
   font: 1.1875rem/1.65 var(--reading);
+}
+
+/* Pause hints: the user's text unchanged, with the gaps between words styled. */
+
+.pause-map-text {
+  margin: 0;
+  min-height: 9rem;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--surface);
+  padding: 0.9rem 1rem;
+  font: 1.1875rem/2 var(--reading);
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
+}
+
+/* Shape carries the meaning (width, underline); color only reinforces it. */
+.pm-gap {
+  border-radius: 3px;
+}
+
+.pm-gap--pause {
+  padding: 0 0.5em;
+  background: var(--pm-pause);
+}
+
+.pm-gap--optional {
+  padding: 0 0.2em;
+  background: var(--pm-optional);
+}
+
+.pm-group {
+  text-decoration: underline solid var(--pm-group) 2px;
+  text-underline-offset: 0.3em;
+  text-decoration-skip-ink: none;
+}
+
+.pause-map-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 1.25rem;
+  margin: 0.5rem 0 0;
+  color: var(--muted);
+  font-size: 0.875rem;
+}
+
+.pm-sample {
+  margin-right: 0.3em;
+  color: var(--ink);
+  font: 1rem/1.6 var(--reading);
+}
+
+.pause-map-note {
+  margin: 0.25rem 0 0;
+  color: var(--muted);
+  font-size: 0.8125rem;
 }
 
 .text-meta {

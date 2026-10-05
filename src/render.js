@@ -152,6 +152,35 @@ function pauseNode(item, tooltip) {
   return node;
 }
 
+const GAP_TITLES = {
+  pause: "Pause here",
+  optional: "Short pause if you like",
+};
+
+/**
+ * Render rule-based pause hints. The text is the original, slice for slice: gaps are styled,
+ * no marks are inserted, so selecting and copying it gives back what the user typed.
+ *
+ * @param {HTMLElement} container
+ * @param {import("./pauseMap.js").Part[]} parts output of pauseMap()
+ */
+export function renderPauseMap(container, parts) {
+  container.replaceChildren(...parts.map(pausePart));
+}
+
+function pausePart(part) {
+  if (part.type === "word") return document.createTextNode(part.text);
+  if (part.type === "group") {
+    const group = el("span", "pm-group");
+    group.append(...part.parts.map(pausePart));
+    return group;
+  }
+  if (part.kind !== "pause" && part.kind !== "optional") return document.createTextNode(part.text);
+  const gap = el("span", `pm-gap pm-gap--${part.kind}`, part.text);
+  gap.title = GAP_TITLES[part.kind];
+  return gap;
+}
+
 function attachTooltip(node, tooltip, build) {
   const show = () => placeTooltip(tooltip, node, build());
   const hide = () => {

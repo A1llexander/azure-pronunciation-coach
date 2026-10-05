@@ -58,6 +58,12 @@ export const MISPRONUNCIATION_THRESHOLD = 60;
  */
 export const BREAK_CONFIDENCE_THRESHOLD = 0.75;
 
+/** Locales for which the rule-based pause hints are offered (the rules are written for English). */
+export const PAUSE_MAP_LOCALES = Object.freeze(["en-US"]);
+
+/** A subordinate clause gets an optional pause before it only after a clause this long (words). Tuned in testing. */
+export const PAUSE_SUBORDINATE_MIN_WORDS = 6;
+
 /** Locales for which prosody assessment is requested. */
 export const PROSODY_LOCALES = Object.freeze(["en-US"]);
 
