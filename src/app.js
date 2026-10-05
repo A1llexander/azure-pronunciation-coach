@@ -14,7 +14,7 @@ import {
   TOKEN_REUSE_MS,
 } from "./config.js";
 import { AppError, ERRORS } from "./errors.js";
-import { createKeyStore, normalizeRegion } from "./keyStore.js";
+import { createKeyStore, isKnownRegion } from "./keyStore.js";
 import { fetchToken, startSession } from "./azure.js";
 import { startRecording, createPlayer } from "./audio.js";
 import { assess, estimateReadingMs } from "./assessment.js";
@@ -73,10 +73,10 @@ let tokenCache = null; // { key, region, token, at }: reused so Record starts wi
 /** A token for the current credentials, fetched only when the cached one is too old. */
 async function getToken() {
   const { key, region } = credentials;
-  const fresh = tokenCache && tokenCache.key === key && tokenCache.region === region && performance.now() - tokenCache.at < TOKEN_REUSE_MS;
+  const fresh = tokenCache && tokenCache.key === key && tokenCache.region === region && Date.now() - tokenCache.at < TOKEN_REUSE_MS;
   if (fresh) return tokenCache.token;
   const token = await fetchToken(key, region);
-  tokenCache = { key, region, token, at: performance.now() };
+  tokenCache = { key, region, token, at: Date.now() };
   return token;
 }
 
@@ -120,7 +120,7 @@ function showSetup() {
 async function onSaveKey(event) {
   event.preventDefault();
   const key = ui.keyInput.value.trim();
-  const region = normalizeRegion(ui.regionInput.value);
+  const region = isKnownRegion(ui.regionInput.value) ? ui.regionInput.value : null;
   if (!key) {
     ui.keyMessage.textContent = "Paste your key first.";
     return;
@@ -134,7 +134,7 @@ async function onSaveKey(event) {
   ui.saveKey.textContent = "Checking…";
   try {
     const token = await fetchToken(key, region); // proves key and region work before saving
-    tokenCache = { key, region, token, at: performance.now() };
+    tokenCache = { key, region, token, at: Date.now() };
     store.save({ key, region, remember: ui.rememberInput.checked });
     credentials = { key, region };
     updateKeyStatus();
@@ -161,12 +161,9 @@ function onForgetKey() {
   ui.keyInput.focus();
 }
 
-/** Select a region, adding it to the list if it is a valid code missing from it. */
+/** Select a region in the list; unknown codes leave it unselected. */
 function selectRegion(code) {
-  if (code && ![...ui.regionInput.options].some((o) => o.value === code)) {
-    ui.regionInput.add(new Option(code, code));
-  }
-  ui.regionInput.value = code;
+  ui.regionInput.value = isKnownRegion(code) ? code : "";
 }
 
 function updateKeyStatus() {

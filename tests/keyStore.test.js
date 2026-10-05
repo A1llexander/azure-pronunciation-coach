@@ -1,6 +1,6 @@
 import { test, describe } from "node:test";
 import assert from "node:assert/strict";
-import { createKeyStore, normalizeRegion } from "../src/keyStore.js";
+import { createKeyStore, isKnownRegion } from "../src/keyStore.js";
 
 function fakeStorage() {
   const map = new Map();
@@ -12,17 +12,13 @@ function fakeStorage() {
   };
 }
 
-describe("normalizeRegion", () => {
-  test("accepts codes and fixes display names", () => {
-    assert.equal(normalizeRegion("westeurope"), "westeurope");
-    assert.equal(normalizeRegion(" West Europe "), "westeurope");
-    assert.equal(normalizeRegion("ea stus"), "eastus");
-  });
-
-  test("rejects what cannot be a region code", () => {
-    assert.equal(normalizeRegion("east_us"), null);
-    assert.equal(normalizeRegion("https://eastus.api.cognitive.microsoft.com/"), null);
-    assert.equal(normalizeRegion(""), null);
+describe("isKnownRegion", () => {
+  test("accepts listed region codes only", () => {
+    assert.equal(isKnownRegion("westeurope"), true);
+    assert.equal(isKnownRegion("eastus"), true);
+    for (const bad of ["West Europe", "eastus1", "x.evil.com#", "", null, undefined, 42]) {
+      assert.equal(isKnownRegion(bad), false, String(bad));
+    }
   });
 });
 
@@ -47,6 +43,14 @@ describe("createKeyStore", () => {
     const store = createKeyStore(storage);
     store.save({ key: "k1", region: "eastus", remember: true });
     store.save({ key: "k1", region: "eastus", remember: false });
+    assert.equal(storage.map.size, 0);
+  });
+
+  test("a stored region that is not a known code is dropped together with the key", () => {
+    const storage = fakeStorage();
+    storage.setItem("pronunciation-coach.key", "k1");
+    storage.setItem("pronunciation-coach.region", "x.evil.com#");
+    assert.equal(createKeyStore(storage).load(), null);
     assert.equal(storage.map.size, 0);
   });
 
